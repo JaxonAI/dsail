@@ -1,0 +1,17 @@
+{
+  "name": "dsail-typescript-example",
+  "private": true,
+  "description": "A TypeScript client for the DSAIL REST door, typed from the OpenAPI document the dsail package bundles (TJP-621, AC 7).",
+  "type": "module",
+  "scripts": {
+    "generate": "openapi-typescript ./openapi.json -o ./dsail-api.d.ts",
+    "typecheck": "tsc --noEmit --strict --target es2022 --module nodenext --moduleResolution nodenext --allowImportingTsExtensions --types node --skipLibCheck client.ts demo.ts",
+    "demo": "tsx demo.ts"
+  },
+  "devDependencies": {
+    "@types/node": "20.14.8",
+    "openapi-typescript": "7.4.4",
+    "tsx": "4.19.2",
+    "typescript": "5.6.3"
+  }
+}

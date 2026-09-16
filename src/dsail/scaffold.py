@@ -1,0 +1,455 @@
+"""``dsail init``: seed a repository so every future agent session finds DSAIL.
+
+Both coding-agent ecosystems read repo-level instructions, and committed skills
+travel with ``git clone``. So one adopting developer running this once seeds
+every later session of every teammate in the repo. Every file is idempotent:
+
+``.claude/skills/dsail/SKILL.md`` and ``.agents/skills/dsail/SKILL.md``
+    The authoring sequence, grammar and integrity rule — the same text the
+    hosted MCP server sends as its ``instructions`` — as a skill, once at the
+    path Claude Code reads and once at the path Codex reads. Same bytes.
+``.mcp.json``
+    A ``dsail`` entry under ``mcpServers`` that launches ``dsail mcp``. Other
+    entries in an existing file are preserved. Claude Code reads this file.
+``.codex/config.toml``
+    A marked ``[mcp_servers.dsail]`` table launching the same proxy. Codex CLI,
+    the Codex IDE extension and the ChatGPT desktop app share one MCP
+    configuration, so this registers DSAIL once for all three; a project-level
+    file applies to a trusted project. Text outside the markers is untouched.
+``CLAUDE.md`` and ``AGENTS.md``
+    A marked stanza between ``<!-- dsail:start -->`` and ``<!-- dsail:end -->``
+    pointing at the skill, the CLI and the Python client. Re-running replaces
+    the stanza in place and touches nothing outside the markers. The stanza is
+    written for the environment with no MCP layer at all — a Codex cloud task —
+    because there the agent has no tool list to notice DSAIL in, and this text
+    is the whole of its discovery.
+
+``dsail codex-plugin`` (:func:`codex_plugin`) builds the Codex plugin bundle
+from the same pieces: one installable carrying the skill, the MCP server entry
+and, when an app id is supplied, the ChatGPT connector.
+
+Everything written is derived from the bundled contract, so a newer package
+re-run over an older scaffold brings the repo's instructions up to date.
+"""
+
+import json
+import os
+
+from dsail import contract
+from dsail._version import __version__
+
+START = "<!-- dsail:start -->"
+END = "<!-- dsail:end -->"
+
+TOML_START = "# dsail:start"
+TOML_END = "# dsail:end"
+
+SKILL_RELATIVE = os.path.join(".claude", "skills", "dsail", "SKILL.md")
+CODEX_SKILL_RELATIVE = os.path.join(".agents", "skills", "dsail", "SKILL.md")
+MCP_JSON = ".mcp.json"
+CODEX_CONFIG = os.path.join(".codex", "config.toml")
+STANZA_FILES = ("CLAUDE.md", "AGENTS.md")
+
+_SKILL_TEMPLATE = """---
+name: dsail
+description: {skill_description}
+---
+
+# DSAIL: policy to formal ruleset, with reproducible results
+
+{preamble}
+
+Documentation for agents, every page as markdown: {docs_url} (`{docs_url}/llms.txt`
+lists them all). Every structured error the service returns carries `docs`, the
+URL of the page that resolves it — fetch it before retrying blind.
+
+## How to work in this repository
+
+- Rules live in the repo. Write the English policy summary and the DSAIL source
+  as files next to the code they govern (for example `policies/<name>.md` and
+  `policies/<name>.dsail`), commit them, and review them like code.
+- The hosted service compiles and checks; nothing formal runs locally. Use the
+  `dsail_*` MCP tools if they are connected, otherwise the CLI:
+
+      dsail compile policies/<name>.dsail          # hash, manifest, review text
+      dsail prompt-pack --hash <ruleset_hash>       # the extraction contract
+      dsail check --hash <ruleset_hash> --claims claims.json
+      dsail serve policies/<name>.dsail             # review UI at a localhost link
+
+- No `dsail_*` tools in this session (a Codex cloud task has no MCP layer at
+  all) means the CLI and the Python client ARE the path, not a fallback: the
+  same operations, the same service, the same results. If `dsail` is not
+  installed, `pip install dsail` first.
+- Review is a human step, and this client renders no widget. When a ruleset is
+  ready, call the `dsail_open_review` MCP tool (source, file path, or stored
+  name): it starts the review UI on this machine, opens the browser, and
+  returns a link — repeat that link to the user. Without MCP tools, give the
+  user the exact command `dsail serve policies/<name>.dsail` to run in their
+  own terminal; do not run it from a sandboxed shell, and never say a review
+  panel is open unless you have a link to show. Approval there is recorded on
+  the service against the exact hash.
+- Integration code fetches the prompt pack, runs extraction on this project's
+  own model and credentials, submits the claim dictionary with `dsail.Client`
+  (`check_with_repair` handles validation failures), and acts on the
+  per-assertion results. Jaxon never sees documents, keys or model choices.
+- If a call fails saying outbound network access is blocked, relay that
+  message to the user verbatim: it names the one-time fix for this environment.
+
+{authoring_sequence}
+
+{grammar_guide}
+
+Integrity rule: {integrity_rule}
+
+<!-- generated by dsail {version}; wire contract {wire_version}; re-run `dsail init` to refresh -->
+"""
+
+_STANZA_TEMPLATE = """{start}
+## DSAIL (policy verification)
+
+This repository uses DSAIL to turn written policies into formal rulesets and to
+check extracted claim values against them on the hosted service. Before
+writing or changing any policy rule, read the skill at `{codex_skill}`
+(the same text is at `{claude_skill}`) and follow its authoring
+sequence: English summary first, explicit confirmation, then DSAIL source,
+adversarial test claims against your own draft, then a human review: call the
+`dsail_open_review` tool, or without MCP hand the user the `dsail serve <file>`
+command to run in their own terminal.
+
+Three ways to reach the service, all the same operations on the same hosted
+engine:
+
+- the `dsail` MCP server, registered in `.mcp.json` and `.codex/config.toml`
+  (`dsail mcp`), when this session has MCP tools;
+- the CLI: `dsail compile|check|prompt-pack|serve`;
+- the Python client `dsail.Client` (`pip install dsail`), for integration code.
+
+If no `dsail_*` tool is listed in this session (a Codex cloud task has
+no MCP layer at all), use the CLI or `dsail.Client` directly and without asking;
+they are the intended path there, not a degraded one. Results are per assertion — TRUE,
+FALSE, UNKNOWN or AMBIGUOUS — and there is no overall verdict to report or
+invent. A message saying outbound network access is blocked names the one-time
+fix for this environment; relay it verbatim.
+{end}
+"""
+
+_TOML_TEMPLATE = """{start}
+# DSAIL: the stdio MCP proxy (`dsail mcp`) forwarding to the hosted service.
+# Written by `dsail init`; re-run it to refresh. Codex CLI, the IDE extension
+# and the ChatGPT desktop app read this one configuration.
+[mcp_servers.dsail]
+command = "dsail"
+args = ["mcp"]
+{env}{end}
+"""
+
+_PREAMBLE = (
+    "DSAIL turns a written policy into a formal ruleset and returns deterministic, "
+    "reproducible results over claim values you extract: given these claim values "
+    "under this ruleset, every assertion answers TRUE, FALSE, UNKNOWN or AMBIGUOUS — "
+    "every time, with a counterexample when one is violated. Whether the claim "
+    "values faithfully describe the document is your extraction's responsibility. "
+    "The service never calls a language model; you run extraction on the user's own "
+    "model using the prompt pack it generates. Report results in those four words, "
+    "attributed to the rules, and never as an overall verdict of your own."
+)
+
+# ------------------------------------------------------------- the Codex plugin
+
+PLUGIN_NAME = "dsail"
+PLUGIN_MANIFEST_RELATIVE = os.path.join(".codex-plugin", "plugin.json")
+PLUGIN_MARKETPLACE_RELATIVE = os.path.join(".agents", "plugins", "marketplace.json")
+MARKETPLACE_NAME = "jaxon"
+
+_PLUGIN_README_TEMPLATE = """# DSAIL — Codex plugin
+
+{lead}
+
+One installable for Codex carrying the DSAIL skill (the authoring sequence and
+grammar), the `dsail` MCP server (the stdio proxy `dsail mcp`, forwarding to the
+hosted service over HTTPS) and, when built with `--app-id`, the ChatGPT
+connector. Private at this stage: this directory is a Codex marketplace of one
+plugin, not a directory submission.
+
+## Install
+
+```bash
+pip install dsail                 # the proxy the MCP entry launches
+codex plugin marketplace add {marketplace_path}
+```
+
+Then `/plugins` in Codex CLI, or the plugin browser in the IDE extension or the
+ChatGPT desktop app: the three share one MCP configuration, so the server
+registers once and is visible in all three. In a repository, `dsail init`
+writes the same skill and server entry into the repo itself, which is what a
+Codex cloud task — no MCP layer — reads.
+
+Documentation for agents: {docs_url}
+
+<!-- generated by dsail {version}; wire contract {wire_version}; re-run `dsail codex-plugin` to refresh -->
+"""
+
+
+def skill_description():
+    """The skill's one-line description: the agreed lead, then when to reach for it.
+
+    The lead is quoted from the bundled phrasing file rather than typed here,
+    so it cannot drift from the MCP server's own description of itself — a
+    coding agent choosing between skills reads this line the way a chat client
+    reads a tool description.
+    """
+    return (
+        "%s Use when asked to enforce, check or encode a policy, rule, threshold or "
+        "compliance requirement against facts extracted from documents; the check runs "
+        "on the hosted DSAIL service with no model in the loop."
+        % contract.phrasing()["lead"]
+    )
+
+
+def skill_markdown():
+    authoring = contract.authoring()
+    return _SKILL_TEMPLATE.format(
+        skill_description=skill_description(),
+        docs_url=contract.docs_url(),
+        preamble=_PREAMBLE,
+        authoring_sequence=authoring["authoring_sequence"].rstrip(),
+        grammar_guide=authoring["grammar_guide"].rstrip(),
+        integrity_rule=authoring["integrity_rule"].strip(),
+        version=__version__,
+        wire_version=contract.versions().get("wire_version", "?"),
+    )
+
+
+def stanza():
+    return _STANZA_TEMPLATE.format(
+        start=START,
+        end=END,
+        codex_skill=CODEX_SKILL_RELATIVE.replace(os.sep, "/"),
+        claude_skill=SKILL_RELATIVE.replace(os.sep, "/"),
+    )
+
+
+def mcp_entry(url=None, credential_env=None):
+    """The ``mcpServers`` entry. ``url`` pins a non-default service."""
+    entry = {"command": "dsail", "args": ["mcp"]}
+    env = {}
+    if url:
+        env["DSAIL_URL"] = url
+    if env:
+        entry["env"] = env
+    return entry
+
+
+def codex_toml_block(url=None):
+    """The marked ``[mcp_servers.dsail]`` table for ``.codex/config.toml``."""
+    env = ""
+    if url:
+        env = "env = { DSAIL_URL = %s }\n" % json.dumps(url)
+    return _TOML_TEMPLATE.format(start=TOML_START, end=TOML_END, env=env)
+
+
+def _write_if_changed(path, text):
+    current = None
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as handle:
+            current = handle.read()
+    if current == text:
+        return "unchanged"
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(text)
+    return "created" if current is None else "updated"
+
+
+def _read_if_present(path):
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as handle:
+            return handle.read()
+    return None
+
+
+def upsert_marked(existing, block, start, end):
+    """``existing`` with the block between ``start``/``end`` replaced, appended, or created."""
+    if existing is None or not existing.strip():
+        return block
+    first = existing.find(start)
+    last = existing.find(end)
+    if first != -1 and last != -1 and last > first:
+        last += len(end)
+        return existing[:first] + block.rstrip("\n") + existing[last:]
+    separator = "" if existing.endswith("\n\n") else ("\n" if existing.endswith("\n") else "\n\n")
+    return existing + separator + block
+
+
+def upsert_stanza(existing, block):
+    """``existing`` with the marked stanza replaced, appended, or created."""
+    return upsert_marked(existing, block, START, END)
+
+
+def merge_mcp_json(existing_text, entry):
+    """The ``.mcp.json`` content with ``mcpServers.dsail`` set, all else kept."""
+    document = {}
+    if existing_text and existing_text.strip():
+        document = json.loads(existing_text)
+        if not isinstance(document, dict):
+            raise ValueError(".mcp.json must hold a JSON object")
+    servers = document.get("mcpServers")
+    if not isinstance(servers, dict):
+        servers = {}
+    servers["dsail"] = entry
+    document["mcpServers"] = servers
+    return json.dumps(document, indent=2) + "\n"
+
+
+def init(root, url=None, write_skill=True, write_mcp=True, write_codex=True,
+         stanza_files=STANZA_FILES):
+    """Scaffold ``root``. Returns ``{relative path: created|updated|unchanged}``."""
+    outcomes = {}
+    if write_skill:
+        skill = skill_markdown()
+        outcomes[SKILL_RELATIVE] = _write_if_changed(os.path.join(root, SKILL_RELATIVE), skill)
+        if write_codex:
+            outcomes[CODEX_SKILL_RELATIVE] = _write_if_changed(
+                os.path.join(root, CODEX_SKILL_RELATIVE), skill
+            )
+    if write_mcp:
+        path = os.path.join(root, MCP_JSON)
+        outcomes[MCP_JSON] = _write_if_changed(
+            path, merge_mcp_json(_read_if_present(path), mcp_entry(url))
+        )
+        if write_codex:
+            path = os.path.join(root, CODEX_CONFIG)
+            outcomes[CODEX_CONFIG] = _write_if_changed(
+                path,
+                upsert_marked(_read_if_present(path), codex_toml_block(url), TOML_START, TOML_END),
+            )
+    block = stanza()
+    for name in stanza_files:
+        path = os.path.join(root, name)
+        outcomes[name] = _write_if_changed(path, upsert_stanza(_read_if_present(path), block))
+    return outcomes
+
+
+# ------------------------------------------------------------- the Codex plugin
+
+
+def plugin_manifest(app_id=None):
+    """``.codex-plugin/plugin.json``: the shape the Codex plugin marketplace publishes.
+
+    ``skills``, ``mcpServers`` and ``apps`` are paths relative to the plugin
+    root; ``apps`` is present only when a ChatGPT app id was supplied, because
+    the id is assigned by OpenAI when the connector is registered and cannot be
+    derived here.
+    """
+    phrasing = contract.phrasing()
+    docs_url = contract.docs_url()
+    manifest = {
+        "name": PLUGIN_NAME,
+        "version": __version__,
+        "description": phrasing["lead"],
+        "author": {"name": "Jaxon, Inc.", "email": "info@jaxon.ai", "url": "https://jaxon.ai/"},
+        "homepage": docs_url,
+        "repository": "https://github.com/JaxonAI/dsail",
+        "license": "Apache-2.0",
+        "keywords": ["dsail", "policy", "rules", "verification", "mcp", "codex"],
+        "skills": "./skills/",
+        "mcpServers": "./.mcp.json",
+        "interface": {
+            "displayName": "DSAIL",
+            "shortDescription": phrasing["lead"],
+            "longDescription": (
+                "%s A written policy becomes a formal ruleset; your model extracts the claim "
+                "values; the hosted service returns each assertion's own result — TRUE, FALSE, "
+                "UNKNOWN or AMBIGUOUS — with the rule that decided, with a counterexample when "
+                "one is violated. No model in the loop: the service never calls one."
+                % phrasing["lead"]
+            ),
+            "developerName": "Jaxon, Inc.",
+            "category": "Developer Tools",
+            "capabilities": ["Read", "Write"],
+            "websiteURL": docs_url,
+            "privacyPolicyURL": "%s/legal/privacy.md" % docs_url,
+            "termsOfServiceURL": "%s/legal/terms.md" % docs_url,
+            "defaultPrompt": [
+                "Turn our written expense policy into rules a program can check",
+                "Check these extracted values against the policy and tell me which rule decided",
+            ],
+            "brandColor": "#1F3A5F",
+            "screenshots": [],
+        },
+    }
+    if app_id:
+        manifest["apps"] = "./.app.json"
+    return manifest
+
+
+def plugin_mcp_json(url=None):
+    return {"mcpServers": {"dsail": mcp_entry(url)}}
+
+
+def plugin_app_json(app_id):
+    """``.app.json``: the bundled ChatGPT connector, by the id OpenAI assigned it."""
+    return {"apps": {"dsail": {"id": app_id, "required": False}}}
+
+
+def marketplace_json(plugin_relative_path):
+    """A private marketplace of this one plugin, so the directory installs as-is."""
+    return {
+        "name": MARKETPLACE_NAME,
+        "interface": {"displayName": "Jaxon"},
+        "plugins": [
+            {
+                "name": PLUGIN_NAME,
+                "source": {"source": "local", "path": plugin_relative_path},
+                "policy": {"installation": "AVAILABLE", "authentication": "ON_FIRST_USE"},
+                "category": "Developer Tools",
+            }
+        ],
+    }
+
+
+def _dump(document):
+    return json.dumps(document, indent=2, sort_keys=True) + "\n"
+
+
+def codex_plugin(root, url=None, app_id=None):
+    """Build the plugin bundle under ``root``.
+
+    Layout, the one the Codex marketplace repository uses::
+
+        <root>/.agents/plugins/marketplace.json
+        <root>/plugins/dsail/.codex-plugin/plugin.json
+        <root>/plugins/dsail/.mcp.json
+        <root>/plugins/dsail/.app.json            (only with app_id)
+        <root>/plugins/dsail/skills/dsail/SKILL.md
+        <root>/plugins/dsail/README.md
+
+    Returns ``{relative path: created|updated|unchanged}``.
+    """
+    plugin_dir = os.path.join("plugins", PLUGIN_NAME)
+    outcomes = {}
+
+    def write(relative, text):
+        outcomes[relative] = _write_if_changed(os.path.join(root, relative), text)
+
+    write(PLUGIN_MARKETPLACE_RELATIVE, _dump(marketplace_json("./" + plugin_dir.replace(os.sep, "/"))))
+    write(os.path.join(plugin_dir, PLUGIN_MANIFEST_RELATIVE), _dump(plugin_manifest(app_id)))
+    write(os.path.join(plugin_dir, ".mcp.json"), _dump(plugin_mcp_json(url)))
+    app_path = os.path.join(root, plugin_dir, ".app.json")
+    if app_id:
+        write(os.path.join(plugin_dir, ".app.json"), _dump(plugin_app_json(app_id)))
+    elif os.path.exists(app_path):
+        os.remove(app_path)
+        outcomes[os.path.join(plugin_dir, ".app.json")] = "removed"
+    write(os.path.join(plugin_dir, "skills", "dsail", "SKILL.md"), skill_markdown())
+    write(
+        os.path.join(plugin_dir, "README.md"),
+        _PLUGIN_README_TEMPLATE.format(
+            lead=contract.phrasing()["lead"],
+            marketplace_path=os.path.abspath(root),
+            docs_url=contract.docs_url(),
+            version=__version__,
+            wire_version=contract.versions().get("wire_version", "?"),
+        ),
+    )
+    return outcomes

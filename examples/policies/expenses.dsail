@@ -1,0 +1,24 @@
+version 1.3;
+
+// The expense policy this sample service enforces. Rules live in the repo,
+// next to the code they govern, and are reviewed like code.
+
+// @ask amount What is the total amount claimed on this expense report, in USD?
+// @unit amount USD
+// @range amount 0..1000000
+declare amount as numeric;
+
+// @ask has_receipt Is an itemised receipt attached for the claimed amount?
+declare has_receipt as boolean;
+
+// @ask category Which single category best describes this expense?
+// @context category Use "other" when none of the named categories fits.
+declare category as enum {"travel","meals","equipment","software","other"};
+
+// @ask manager_approved Has the claimant's manager recorded approval on the report?
+declare manager_approved as boolean;
+
+assert receipt_over_75 { Implies(amount > 75 "USD", has_receipt) };
+assert within_cap { amount <= 5000 "USD" };
+assert equipment_needs_manager { Implies(category == "equipment", manager_approved) };
+assert large_claims_need_manager { Implies(amount > 1000 "USD", manager_approved) };

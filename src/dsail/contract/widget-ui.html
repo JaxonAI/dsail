@@ -1,0 +1,1592 @@
+<!--
+  The DSAIL review UI (TJP-636). NOT a document: a fragment, fetched over
+  the connector by widget-shell.html and injected into it, so a deployed
+  change to this file reaches every connected user on their next
+  conversation with no disconnect/reconnect. `119e4a3ef3` is substituted
+  by agent_api.widget with this file's own content hash.
+
+  Three tools render here, each recognised by the shape of its own payload
+  rather than by a tool name the result does not carry: a listing has
+  `rulesets`, one ruleset has a hash and a manifest (TJP-634).
+
+  The Exercise panel shows each assertion's own result — TRUE, FALSE, UNKNOWN
+  or AMBIGUOUS — and no other status word. There is no overall verdict to
+  render: the service publishes none, and inventing one here would put a
+  decision on screen that nothing behind it made (TJP-635).
+
+  Source of truth for the Source panel: `dsail_compile` echoes the
+  normalised source it compiled (`payload.source`), so every hydrate carries
+  the literal text. The manifest-based reconstruction below
+  survives only as a fallback for a payload with no `source`; it is NOT
+  valid DSAIL to commit (the first live walk in TJP-630 committed it and got
+  a syntax error), so it is never offered as the editor's contents when real
+  source exists.
+
+  One editor, not two: the Source panel is a line-numbered code editor — a
+  transparent textarea over a highlighted <pre>, scroll-synced — because the
+  compiler's diagnostics name line numbers. The Claims panel edits the same
+  text: changing a claim's question, context, unit or range rewrites the
+  matching `// @ask` / `@context` / `@unit` / `@range` annotation line in the
+  source, and both panels commit through the same dsail_compile call.
+
+  One widget for every chat surface (TJP-620). Whether a control may call a
+  tool itself is a fact about the HOST, learned at runtime from the MCP Apps
+  handshake (`hostCapabilities.serverTools`), never from a user agent or a
+  vendor global. A host that cannot proxy tools/call from this frame gets the
+  same control wired to a prefilled message: the widget composes the request
+  and hands it to the conversation (`ui/message`), and the model performs the
+  call. The server can force that path on every host (`widget.direct_calls`
+  in the payload) — the proof that there is one widget, not one per vendor.
+  Theme and platform come from the host context the same way, and land as
+  `data-theme` / `data-platform` on the root for host-conditional styling.
+-->
+<style>
+  :root {
+    --bg: #ffffff; --fg: #16181d; --muted: #5b6472; --line: #d9dee6;
+    --panel: #f6f8fa; --accent: #1a56db; --accent-fg: #ffffff;
+    --good: #0e7a3d; --caution: #a05a00; --bad: #b3261e; --neutral: #3d4a5c;
+    --good-bg: #e2f5e9; --caution-bg: #fdf0dd; --bad-bg: #fbe3e1; --neutral-bg: #e7ebf0;
+    --kw: #9333ea; --lit: #0e7a3d; --unit: #b45309; --com: #7a8492; --claim-hl: #fff3bf;
+    --input-bg: #ffffff; --danger: #b3261e;
+  }
+  /* Dark tokens are stated twice on purpose: once for a host that says nothing
+     about theme (the system preference decides), once for a host that names
+     it in its context. The host's word wins in both directions — a light
+     host tab on a dark OS renders light, and the reverse. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #101317; --fg: #e8eaee; --muted: #9aa4b2; --line: #2c333d;
+      --panel: #181d23; --accent: #6da2ff; --accent-fg: #0b1220;
+      --good: #4ade80; --caution: #fbbf24; --bad: #f87171; --neutral: #b7c0cc;
+      --good-bg: #12301e; --caution-bg: #33260e; --bad-bg: #371412; --neutral-bg: #232a33;
+      --kw: #c084fc; --lit: #4ade80; --unit: #fbbf24; --com: #7f8a99; --claim-hl: #4a3f10;
+      --input-bg: #161b21; --danger: #f87171;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #101317; --fg: #e8eaee; --muted: #9aa4b2; --line: #2c333d;
+    --panel: #181d23; --accent: #6da2ff; --accent-fg: #0b1220;
+    --good: #4ade80; --caution: #fbbf24; --bad: #f87171; --neutral: #b7c0cc;
+    --good-bg: #12301e; --caution-bg: #33260e; --bad-bg: #371412; --neutral-bg: #232a33;
+    --kw: #c084fc; --lit: #4ade80; --unit: #fbbf24; --com: #7f8a99; --claim-hl: #4a3f10;
+    --input-bg: #161b21; --danger: #f87171;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 10px; background: var(--bg); color: var(--fg);
+         font: 15px/1.45 -apple-system, system-ui, "Segoe UI", sans-serif; }
+  h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em;
+       color: var(--muted); margin: 0 0 8px; }
+  h3 { font-size: 13.5px; margin: 14px 0 6px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+           padding: 12px; margin-bottom: 12px; }
+  .hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 8px; flex-wrap: wrap; }
+  .hdr h1 { font-size: 15px; margin: 0; font-weight: 600; }
+  .hdr .left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+  .badge { font-size: 11.5px; font-weight: 600; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+  .badge.pending { background: var(--neutral-bg); color: var(--neutral); }
+  .badge.approved { background: var(--good-bg); color: var(--good); }
+  /* Shown only when this host cannot run tools from the frame: every control
+     below then hands its request to the conversation instead. */
+  .badge.relay { background: var(--caution-bg); color: var(--caution); }
+  .relay-note { display: none; color: var(--fg); font-size: 12.5px; margin-top: 8px; padding: 8px 10px;
+                background: var(--caution-bg); border-radius: 6px; }
+  .relay-note.on { display: block; }
+  /* A phone-sized host: taller tap targets on the tab strip, which is the one
+     control a thumb hits repeatedly. Width rules elsewhere cover layout. */
+  :root[data-platform="mobile"] nav.tabs button { padding: 11px 12px; font-size: 13.5px; }
+  :root[data-platform="mobile"] button.btn { padding: 12px 14px; }
+
+  /* The hash control. A hash is what a person carries out of this widget — into
+     a ticket, a change record, a message to whoever else has to check it — and
+     it is 64 characters nobody retypes. So it is a button that copies the whole
+     thing, and it never SHOWS the whole thing: an unabbreviated hash in a
+     heading crowds out the name, which is what a person actually reads by. */
+  button.hash { font: 12px ui-monospace, Menlo, monospace; color: var(--muted);
+                background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+                padding: 3px 8px; cursor: pointer; white-space: nowrap; }
+  button.hash:hover { color: var(--fg); border-color: var(--accent); }
+  button.hash.copied { color: var(--good); border-color: var(--good); }
+  button.back { padding: 4px 10px; font-size: 12.5px; font-weight: 600; }
+
+  /* The library. A real table at reading width; one card per ruleset on a
+     phone, where six columns become six characters each. Same markup either
+     way — the labels come from data-label — because two markup paths for one
+     table is two things to keep in agreement. */
+  table.lib td { vertical-align: middle; }
+  table.lib tr.lib-row { cursor: pointer; }
+  table.lib tr.lib-row:hover td { background: var(--panel); }
+  table.lib tr.lib-row.stale td { opacity: .6; }
+  .lib-name { font-weight: 600; font-size: 13.5px; display: block; margin-bottom: 4px; }
+  .lib-sum { color: var(--muted); font-size: 12.5px; }
+  .lib-num { font: 12.5px ui-monospace, Menlo, monospace; }
+  .lib-when { color: var(--muted); font-size: 11.5px; white-space: nowrap; }
+  #lib-status { color: var(--muted); font-size: 12px; margin: 0 0 8px; }
+  @media (max-width: 699px) {
+    table.lib, table.lib tbody, table.lib tr, table.lib td { display: block; width: 100%; }
+    table.lib thead { display: none; }
+    table.lib tr.lib-row { border: 1px solid var(--line); border-radius: 10px;
+                           padding: 10px 12px; margin-bottom: 10px; }
+    table.lib td { border-bottom: 0; padding: 2px 0; }
+    table.lib td[data-label]::before { content: attr(data-label) ": "; color: var(--muted);
+                                       font-size: 11.5px; }
+    table.lib td.no-label::before { content: none; }
+  }
+
+  nav.tabs { display: flex; gap: 4px; overflow-x: auto; margin-bottom: 10px;
+             border-bottom: 1px solid var(--line); padding-bottom: 0; -webkit-overflow-scrolling: touch; }
+  nav.tabs button { flex: 0 0 auto; background: transparent; border: 0; padding: 8px 12px;
+                     font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer;
+                     border-bottom: 2px solid transparent; border-radius: 0; }
+  nav.tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
+  section[data-panel] { display: none; }
+  section[data-panel].active { display: block; }
+
+  pre.code { margin: 0; overflow-x: auto; font: 12.5px/1.6 ui-monospace, "SF Mono", Menlo, monospace;
+        white-space: pre; -webkit-overflow-scrolling: touch; }
+  .kw { color: var(--kw); font-weight: 600; }
+  .lit { color: var(--lit); }
+  .unitlit { color: var(--unit); }
+  .com { color: var(--com); font-style: italic; }
+  .cid { border-radius: 3px; }
+  .cid.match { text-decoration: underline; text-decoration-style: dotted; }
+  pre.code .hl-line { display: inline-block; width: 100%; background: var(--claim-hl); border-radius: 4px; }
+  .recon-note, .gap-note { color: var(--muted); font-size: 12px; margin: 0 0 8px; padding: 8px 10px;
+                            background: var(--neutral-bg); border-radius: 6px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--muted); font-weight: 600; font-size: 11.5px;
+       padding: 4px 8px 6px 0; border-bottom: 1px solid var(--line); }
+  td { padding: 7px 8px 7px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr.claim-row { cursor: pointer; }
+  tr.claim-row.sel td { background: var(--claim-hl); }
+  td code, .mono { font: 12px ui-monospace, Menlo, monospace; }
+  .qtext { color: var(--fg); font-size: 12.5px; }
+  .ctext { color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+  .vocab { color: var(--muted); font-size: 11.5px; }
+
+  .field { margin-bottom: 10px; }
+  .field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .field .q { font-weight: 400; color: var(--muted); font-size: 11.5px; }
+  select, input[type=number], input[type=text], textarea {
+    width: 100%; padding: 8px; font-size: 15px; border: 1px solid var(--line);
+    border-radius: 8px; background: var(--input-bg); color: var(--fg); font-family: inherit; }
+  /* The code editor: gutter + (highlighted pre under a transparent textarea).
+     Font, line-height, padding and white-space MUST be identical on .hl and
+     .overlay or the caret drifts from the text it edits. */
+  /* The editor grows with its content and never scrolls vertically: a textarea
+     and a <pre> scrolled inside a fixed box drift apart by the difference in
+     their scrollable extents (the caret sat about three-quarters of a line above
+     the text on a long policy). Height is set from the line count by paintEditor;
+     only horizontal overflow scrolls, and that is synced. Pixel line-height and
+     font-size are pinned on every layer so the glyph grid is identical. */
+  .editor { display: flex; border: 1px solid var(--line); border-radius: 8px; background: var(--input-bg);
+            min-height: 120px; overflow: hidden; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+            font-size: 12.5px; line-height: 20px; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  .editor .gutter { margin: 0; padding: 10px 8px 10px 10px; text-align: right; color: var(--muted);
+                    background: var(--panel); border-right: 1px solid var(--line); user-select: none;
+                    overflow: hidden; font-family: inherit; font-size: 12.5px; line-height: 20px;
+                    white-space: pre; flex: 0 0 auto; }
+  .editor .editor-body { position: relative; flex: 1 1 auto; overflow: hidden; }
+  .editor pre.hl, .editor textarea.overlay {
+    margin: 0; padding: 10px 12px; white-space: pre; tab-size: 4; letter-spacing: 0; word-spacing: 0;
+    font-family: inherit; font-size: 12.5px; line-height: 20px; font-weight: 400; font-style: normal;
+    box-sizing: border-box; width: 100%; height: 100%; overflow-x: auto; overflow-y: hidden;
+    border: 0; border-radius: 0; }
+  .editor pre.hl .kw { font-weight: 400; }   /* bold widens glyphs and breaks caret alignment */
+  .editor pre.hl .com { font-style: normal; }
+  .editor pre.hl { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+  .editor textarea.overlay { position: relative; background: transparent; color: transparent;
+    caret-color: var(--fg); resize: none; outline: none; overflow-wrap: normal; }
+  .editor textarea.overlay::selection { background: rgba(26, 86, 219, .25); }
+  .editor textarea.overlay:focus { box-shadow: inset 0 0 0 2px var(--accent); }
+  .numrow { display: flex; gap: 8px; }
+  .numrow input[data-type=numeric] { flex: 1 1 60%; }
+  .numrow input.unit { flex: 0 1 34%; font: 13px ui-monospace, Menlo, monospace; }
+  .claim-edit { width: 100%; padding: 5px 6px; font-size: 12.5px; border: 1px solid transparent;
+                border-radius: 6px; background: transparent; color: var(--fg); font-family: inherit; }
+  .claim-edit:hover, .claim-edit:focus { border-color: var(--line); background: var(--input-bg); }
+  .claim-edit.mono { font: 12px ui-monospace, Menlo, monospace; }
+  .claim-static { font: 12px ui-monospace, Menlo, monospace; color: var(--muted); }
+  .diag { margin: 2px 0; }
+  .unit-hint { color: var(--muted); font-size: 11.5px; margin-left: 2px; }
+
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .row > * { flex: 1 1 120px; }
+
+  .btnrow { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  button.btn { padding: 10px 14px; font-size: 14px; font-weight: 600; border: 0; border-radius: 8px;
+               cursor: pointer; background: var(--panel); color: var(--fg); border: 1px solid var(--line); }
+  button.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  button.btn.outline { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+  button.btn[disabled] { opacity: .5; cursor: default; }
+  button.btn:active:not([disabled]) { opacity: .8; }
+
+  #results { display: none; margin-top: 12px; border-radius: 8px; padding: 10px 12px;
+             background: var(--neutral-bg); color: var(--fg); }
+  #results .overall { font-weight: 700; font-size: 15px; }
+  #results .note { font-size: 12.5px; margin-top: 2px; color: var(--muted); }
+  .rules-out { margin-top: 10px; font-size: 12.5px; }
+  .rules-out .rule-out { padding: 6px 0; border-top: 1px solid var(--line); }
+  .rules-out .rule-out:first-child { border-top: 0; }
+  .rules-out .rr-top { display: flex; justify-content: space-between; gap: 8px; }
+  .rules-out .rr-src { color: var(--muted); margin-top: 3px; }
+  .rules-out .rr-ce { margin-top: 3px; color: var(--muted); }
+  /* The only status words this widget renders are the engine's own four. */
+  .st { font-weight: 700; }
+  .st.TRUE { color: var(--good); }
+  .st.FALSE { color: var(--bad); }
+  .st.AMBIGUOUS { color: var(--caution); }
+  .st.UNKNOWN { color: var(--neutral); }
+
+  .hint { color: var(--muted); font-size: 11.5px; margin-top: 8px; }
+  .err { color: var(--danger); font-size: 12.5px; margin-top: 8px; }
+  #empty { color: var(--muted); padding: 30px 8px; text-align: center; }
+
+  .diff-line { white-space: pre-wrap; font: 12px/1.6 ui-monospace, Menlo, monospace; padding: 0 4px; }
+  .diff-add { background: var(--good-bg); }
+  .diff-del { background: var(--bad-bg); text-decoration: line-through; opacity: .85; }
+  .diff-ctx { color: var(--muted); }
+
+  .unit-item { display: flex; justify-content: space-between; padding: 5px 0; border-top: 1px solid var(--line); font-size: 13px; }
+  .unit-item:first-child { border-top: 0; }
+  .unit-lib-warn { font-size: 12px; color: var(--caution); margin-top: 8px; }
+
+  @media (min-width: 860px) {
+    body { padding: 18px; max-width: 980px; margin: 0 auto; }
+    .two-col { display: grid; grid-template-columns: 1.3fr 1fr; gap: 12px; align-items: start; }
+  }
+</style>
+<div id="empty">
+  <div id="empty-msg">Waiting for a compiled ruleset&hellip;</div>
+  <div id="empty-err" class="err" style="display:none"></div>
+</div>
+<div id="library" style="display:none">
+  <div class="hdr">
+    <h1>Ruleset library</h1>
+    <span id="lib-count" class="badge pending"></span>
+  </div>
+  <div class="panel">
+    <p id="lib-status"></p>
+    <table class="lib">
+      <thead><tr>
+        <th>Ruleset</th><th>What it decides</th><th>Claims</th><th>Rules</th>
+        <th>Approval</th><th>Changed</th>
+      </tr></thead>
+      <tbody id="lib-body"></tbody>
+    </table>
+    <p class="hint">Pick a ruleset to read its source, exercise it and approve it.
+      The short hash beside each name copies in full when you tap it.</p>
+  </div>
+</div>
+<!-- `data-ui-build` is not displayed anywhere: the build identifiers belong in
+     the review payload's `widget` block, not in a user's face. It stays here
+     because widget-shell.html reads it out of these bytes to name the build in
+     its failure panel, which is the one place a human needs it — when the UI
+     did not load and there is no payload to read. -->
+<div id="app" style="display:none" data-ui-build="119e4a3ef3">
+  <div class="hdr">
+    <div class="left">
+      <button class="btn back" id="back-to-library" style="display:none">&larr; Library</button>
+      <h1 id="rs-name">ruleset</h1>
+      <button class="hash" id="rs-hash" title="Copy the full hash">&hellip;</button>
+    </div>
+    <span class="left">
+      <span id="relay-badge" class="badge relay" style="display:none"
+            title="This chat client does not run tools from inside the widget. Each action here is handed to the conversation and the assistant performs it.">via conversation</span>
+      <span id="approved-badge" class="badge pending">Not approved</span>
+    </span>
+  </div>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="exercise" class="active">Exercise</button>
+    <button data-tab="source">Source</button>
+    <button data-tab="claims">Claims</button>
+    <button data-tab="diff">Diff</button>
+    <button data-tab="units">Units</button>
+  </nav>
+
+  <section data-panel="exercise" class="active">
+    <div class="two-col">
+      <div class="panel">
+        <h2>Exercise</h2>
+        <div id="uncommitted-warning" class="gap-note" style="display:none">
+          Uncommitted source changes — commit them from the Source tab before running a check
+          here, or this checks the last COMMITTED revision instead of what is in the editor.
+        </div>
+        <div id="inputs"></div>
+        <div class="btnrow">
+          <button class="btn primary" id="run">Run check</button>
+        </div>
+        <div id="results"></div>
+        <div id="run-relay" class="relay-note"></div>
+        <div class="hint" id="bridge-hint">Checks run through the connector; the first call may ask you to allow it.</div>
+      </div>
+      <div class="panel">
+        <h2>Approve</h2>
+        <p class="hint" style="margin-top:0">
+          Saves this ruleset, then binds a sign-off to this exact hash. A later revision is
+          not covered by it.
+        </p>
+        <div class="field">
+          <label>Approved by</label>
+          <input type="text" id="approver" placeholder="your name or identifier">
+        </div>
+        <div class="field">
+          <label>Note (optional)</label>
+          <input type="text" id="approve-note" placeholder="e.g. reviewed against v3 of the policy doc">
+        </div>
+        <div id="name-prompt" class="gap-note" style="display:none">
+          <div style="margin-bottom:8px">
+            Nothing names this ruleset yet. Give it one — approving saves it under that name,
+            so you can find it again after this conversation.
+          </div>
+          <input type="text" id="save-name" placeholder="e.g. expense-policy"
+                 autocapitalize="off" autocorrect="off" spellcheck="false">
+          <div class="btnrow">
+            <button class="btn primary" id="save-and-approve">Save &amp; approve</button>
+            <button class="btn" id="cancel-approve">Cancel</button>
+          </div>
+        </div>
+        <div class="btnrow">
+          <button class="btn outline" id="approve">Approve this hash</button>
+        </div>
+        <div id="approve-err" class="err" style="display:none"></div>
+        <div id="approve-relay" class="relay-note"></div>
+        <p class="hint" id="approve-target"></p>
+      </div>
+    </div>
+  </section>
+
+  <section data-panel="source">
+    <div class="panel">
+      <h2>Source</h2>
+      <div id="source-recon-note" class="recon-note" style="display:none"></div>
+      <div class="editor" id="editor">
+        <pre class="gutter" id="gutter" aria-hidden="true">1</pre>
+        <div class="editor-body">
+          <pre class="code hl" id="source-view" aria-hidden="true"></pre>
+          <textarea id="source-edit" class="overlay" spellcheck="false" autocapitalize="off" autocorrect="off" wrap="off" aria-label="DSAIL source"></textarea>
+        </div>
+      </div>
+      <div class="btnrow">
+        <button class="btn primary" id="commit">Commit as new revision</button>
+        <button class="btn" id="revert">Revert edits</button>
+      </div>
+      <div id="commit-err" class="err" style="display:none"></div>
+      <div id="commit-relay" class="relay-note"></div>
+      <div class="hint">
+        No edit is real until this compiles. Committing calls dsail_compile again with
+        parent_hash set to the current hash, and this whole widget re-hydrates from that result.
+        Compiler diagnostics refer to the line numbers in the gutter. For a ruleset that is
+        already in your library, the name moves to the new revision — the text it replaced
+        stays reachable through the revision chain, and any approval stays on the hash it was
+        given to.
+      </div>
+    </div>
+  </section>
+
+  <section data-panel="claims">
+    <div class="panel">
+      <h2>Claim manifest</h2>
+      <table>
+        <thead><tr><th>claim</th><th>shape</th><th>question &amp; context</th></tr></thead>
+        <tbody id="claims-body"></tbody>
+      </table>
+      <div class="hint">
+        Tap a claim name to highlight the rules that reference it below. The question, context,
+        unit and range are editable here: an edit rewrites the matching annotation in the source
+        and is committed with the button below (or from the Source tab — it is the same text).
+        A claim's type and vocabulary are edited in the Source tab.
+      </div>
+      <div class="btnrow">
+        <button class="btn primary" id="commit-claims">Commit as new revision</button>
+        <button class="btn" id="revert-claims">Revert edits</button>
+      </div>
+      <div id="commit-claims-err" class="err" style="display:none"></div>
+      <div id="commit-claims-relay" class="relay-note"></div>
+    </div>
+    <div class="panel">
+      <h2>Referencing rules</h2>
+      <pre class="code" id="claims-source-view"></pre>
+    </div>
+  </section>
+
+  <section data-panel="diff">
+    <div class="panel">
+      <h2>Diff vs. parent revision</h2>
+      <div id="diff-body"></div>
+    </div>
+  </section>
+
+  <section data-panel="units">
+    <div class="panel">
+      <h2>Unit conversion library</h2>
+      <div id="units-body">
+        <p class="hint">Loading&hellip;</p>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Add a converter</h2>
+      <p class="unit-lib-warn">
+        A conversion rate is a policy decision, not something to guess. Adding one changes
+        what checks answer and invalidates any prior approval recorded against this project's
+        previous unit-library hash.
+      </p>
+      <div class="row">
+        <div class="field"><label>From unit</label><input type="text" id="conv-from" placeholder="EUR"></div>
+        <div class="field"><label>To unit</label><input type="text" id="conv-to" placeholder="USD"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Factor (to = from &times; factor + offset)</label><input type="number" step="any" id="conv-factor" placeholder="1.08"></div>
+        <div class="field"><label>Offset</label><input type="number" step="any" id="conv-offset" value="0"></div>
+      </div>
+      <div class="field"><label>Attribution</label><input type="text" id="conv-attribution" placeholder="e.g. contract §4.2 fixed rate"></div>
+      <div class="btnrow"><button class="btn primary" id="add-converter">Add converter</button></div>
+      <div id="conv-err" class="err" style="display:none"></div>
+      <div id="conv-relay" class="relay-note"></div>
+    </div>
+  </section>
+</div>
+<script>
+/* The review UI, fetched and run by widget-shell.html at open time (TJP-636).
+ * The shell owns the app bridge: it is already connected by the time this
+ * runs, and it has buffered any tool result that arrived first. This script
+ * therefore constructs no `App` of its own and never calls `connect()` — it
+ * takes the connected one and registers its handler with `shell.ready()`,
+ * last, once every DOM listener below is wired.
+ */
+(function () {
+  "use strict";
+  const shell = window.__dsailShell;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  // ---- state ------------------------------------------------------------
+  const state = {
+    hash: null,
+    manifest: null,
+    review: null,
+    stored: null,
+    unitLibraryHash: null,
+    // The name this ruleset is saved under, or null for something only
+    // compiled. Approving needs one — a hash nothing names is reachable only by
+    // whoever kept the hash — so when it is null the Approve control asks.
+    name: null,
+    // Every approval bound to `hash`, as the server reported it. Not a
+    // session-local flag: a ruleset opened from the library arrives with the
+    // signatures it already has, and a widget that showed "not approved" over
+    // something already signed was worse than showing nothing.
+    approvals: [],
+    // The library rows, or null when this frame has never seen a listing (a
+    // widget opened straight onto one compiled ruleset). Non-null is what puts
+    // the back control on the header.
+    library: null,
+    // The literal source of the current revision: `payload.source` from the
+    // compile that hydrated us. Null only for a payload that carried none, in
+    // which case the manifest reconstruction stands in (read-only in spirit:
+    // it is not valid DSAIL and the Source panel says so).
+    knownSource: null,
+    // hash -> source, for every revision seen this session (compiled by the
+    // model or committed here), so the Diff panel can compare against a parent.
+    sourceByHash: {},
+    selectedClaim: null,
+    editingDirty: false,
+  };
+
+  // Whether the listing this frame is holding predates a write it made. Only
+  // approving and committing move a name, and both happen here, so a refetch is
+  // needed exactly then rather than on every return to the list.
+  let libraryStale = false;
+
+  // ---- DSAIL syntax highlighting (regex-based; see widget/app.html in the
+  // validated prototype for the pattern this follows) --------------------
+  const KEYWORDS = /\b(version|ruleset|declare|as|of|assert|rule|when|and|or|not|implies|in|forall|exists|atleast|atmost|exactlyone|entity|numeric|boolean|enum|identity|let)\b/g;
+  const UNIT_LIT = /"((?:[^"\\]|\\.)*)"\s*(?=[)\s;,]|$)/g;
+
+  function highlightDSAIL(text) {
+    const lines = String(text || "").split(/\r?\n/).map((line) => {
+      // Comments (// ...) are pulled out first so keyword/literal rules
+      // never reach inside them.
+      const commentMatch = line.match(/(\/\/.*)$/);
+      const codePart = commentMatch ? line.slice(0, commentMatch.index) : line;
+      const commentPart = commentMatch ? commentMatch[1] : "";
+      let h = esc(codePart)
+        .replace(KEYWORDS, '<span class="kw">$1</span>')
+        .replace(/\b(true|false|\d+(?:\.\d+)?)\b/g, '<span class="lit">$1</span>')
+        .replace(/&quot;((?:[^&]|&(?!quot;))*)&quot;/g, '<span class="unitlit">&quot;$1&quot;</span>');
+      if (commentPart) h += '<span class="com">' + esc(commentPart) + "</span>";
+      return h;
+    });
+    return lines;
+  }
+
+  function claimIdsFrom(manifest) {
+    return (manifest.claims || []).map((c) => c.claim);
+  }
+
+  function highlightWithClaimRefs(text, claimIds, selected) {
+    const lines = highlightDSAIL(text);
+    return lines.map((h) => {
+      let out = h;
+      for (const id of claimIds) {
+        const re = new RegExp("\\b(" + id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")\\b", "g");
+        out = out.replace(re, (m, g1, offset) => {
+          // Don't relabel a match already inside a span's attribute text.
+          return '<span class="cid' + (id === selected ? " match" : "") + '" data-claim="' + esc(id) + '">' + g1 + "</span>";
+        });
+      }
+      return out;
+    }).join("\n");
+  }
+
+  // ---- reconstruction, when the literal source is not known -------------
+  // Real per-assertion text (manifest.rules[].assertions[].source) is authentic
+  // DSL; only the `declare` lines are synthesized from the claim schema, and
+  // formatting (blank lines, the author's own comments outside a rule body) is
+  // lost.
+  function manifestAssertions(manifest) {
+    return (manifest.rules || []).flatMap((r) => (r.assertions || []).map(
+      (a) => Object.assign({ rule: r.rule }, a)));
+  }
+
+  function declareLine(claim) {
+    let type = claim.data_type;
+    if (type === "enum") {
+      type = "enum [" + (claim.vocabulary || []).map((v) => JSON.stringify(String(v))).join(",") + "]";
+    }
+    let line = "declare " + claim.claim + " as " + type + ";";
+    const annotations = [];
+    if (claim.unit) annotations.push("// @unit " + claim.claim + " " + claim.unit);
+    if (claim.range) annotations.push("// @range " + claim.claim + " " + claim.range.min + ".." + claim.range.max);
+    return annotations.concat([line]).join("\n");
+  }
+
+  function reconstructSource(manifest) {
+    const claims = (manifest.claims || []).map(declareLine);
+    const rules = manifestAssertions(manifest).map((a) => a.source ? (a.source.trim().endsWith(";") ? a.source : a.source + ";") : ("// " + a.name + ": source unavailable"));
+    return ["version 1.3;", ""].concat(claims, [""], rules).join("\n");
+  }
+
+  function currentSourceText() {
+    if (state.knownSource !== null) return state.knownSource;
+    return reconstructSource(state.manifest);
+  }
+
+  // ---- a small LCS line diff --------------------------------------------
+  function diffLines(a, b) {
+    const A = a.split(/\r?\n/), B = b.split(/\r?\n/);
+    const n = A.length, m = B.length;
+    const lcs = Array.from({ length: n + 1 }, () => new Int32Array(m + 1));
+    for (let i = n - 1; i >= 0; i--) {
+      for (let j = m - 1; j >= 0; j--) {
+        lcs[i][j] = A[i] === B[j] ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
+      }
+    }
+    const out = [];
+    let i = 0, j = 0;
+    while (i < n && j < m) {
+      if (A[i] === B[j]) { out.push({ type: "ctx", text: A[i] }); i++; j++; }
+      else if (lcs[i + 1][j] >= lcs[i][j + 1]) { out.push({ type: "del", text: A[i] }); i++; }
+      else { out.push({ type: "add", text: B[j] }); j++; }
+    }
+    while (i < n) { out.push({ type: "del", text: A[i] }); i++; }
+    while (j < m) { out.push({ type: "add", text: B[j] }); j++; }
+    return out;
+  }
+
+  // ---- rendering ----------------------------------------------------------
+
+  function shapeText(c) {
+    if (c.data_type === "boolean") return "boolean";
+    if (c.data_type === "enum") return "enum(" + (c.vocabulary || []).join(", ") + ")";
+    if (c.data_type === "numeric") {
+      let s = "numeric";
+      if (c.unit) s += " " + c.unit;
+      if (c.range) s += " [" + c.range.min + ".." + c.range.max + "]";
+      return s;
+    }
+    return c.data_type;
+  }
+
+  // A hash is 64 hex characters. Shown short everywhere, copied whole — see
+  // the note on button.hash in the stylesheet.
+  function shortHash(hash) {
+    return hash ? hash.slice(0, 12) + "…" : "";
+  }
+
+  function copyToClipboard(text, button) {
+    const restore = button.textContent;
+    const done = () => {
+      button.textContent = "copied";
+      button.classList.add("copied");
+      setTimeout(() => {
+        button.textContent = restore;
+        button.classList.remove("copied");
+      }, 1200);
+    };
+    // The async Clipboard API needs the clipboard-write permission the `ui://`
+    // resource asks for (mcp_app.py). A host may decline it, and older ones do
+    // not implement it at all, so the selection-and-execCommand path stays as
+    // the fallback rather than leaving the one control a person needs inert.
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, () => legacyCopy(text, done));
+    } else {
+      legacyCopy(text, done);
+    }
+  }
+
+  function legacyCopy(text, done) {
+    const scratch = document.createElement("textarea");
+    scratch.value = text;
+    scratch.setAttribute("readonly", "");
+    scratch.style.position = "fixed";
+    scratch.style.top = "-1000px";
+    document.body.appendChild(scratch);
+    scratch.select();
+    try {
+      if (document.execCommand("copy")) done();
+    } catch (e) {
+      console.error("[dsail-widget] clipboard unavailable", e);
+    }
+    document.body.removeChild(scratch);
+  }
+
+  function renderHeader() {
+    $("rs-name").textContent = state.name || "Unsaved ruleset";
+    $("rs-hash").textContent = shortHash(state.hash);
+    $("rs-hash").style.display = state.hash ? "" : "none";
+    $("back-to-library").style.display = state.library === null ? "none" : "";
+    const approvals = state.approvals || [];
+    const b = $("approved-badge");
+    b.className = "badge " + (approvals.length ? "approved" : "pending");
+    if (!approvals.length) {
+      b.textContent = "Not approved";
+    } else if (approvals.length === 1) {
+      b.textContent = "Approved by " + approvals[0].approver;
+    } else {
+      b.textContent = approvals.length + " approvals";
+    }
+    renderBridgeState();
+  }
+
+  function renderApproveTarget() {
+    $("approve-target").textContent = state.name
+      ? "Approving saves these bytes as “" + state.name + "” and records the sign-off " +
+        "against this hash."
+      : "This ruleset is not saved yet. Approving will ask for a name and save it first, " +
+        "so it is in your library afterwards.";
+  }
+
+  // ---- the library --------------------------------------------------------
+
+  function renderLibrary() {
+    const rows = state.library || [];
+    $("lib-count").textContent = rows.length === 1 ? "1 ruleset" : rows.length + " rulesets";
+    if (!rows.length) {
+      $("lib-body").innerHTML =
+        '<tr><td colspan="6" class="no-label"><p class="hint">Nothing saved here yet. ' +
+        "Compile a ruleset and approve it, and it lands in this list.</p></td></tr>";
+      return;
+    }
+    $("lib-body").innerHTML = rows.map((r) => {
+      const approval = r.approval_count
+        ? '<span class="badge approved">' +
+          (r.approval_count === 1 ? "approved" : r.approval_count + " approvals") + "</span>"
+        : '<span class="badge pending">not approved</span>';
+      const counts = (n) => (n === null || n === undefined ? "—" : String(n));
+      return '<tr class="lib-row' + (r.compiles === false ? " stale" : "") +
+        '" data-hash="' + esc(r.ruleset_hash) + '" data-name="' + esc(r.name) + '">' +
+        '<td class="no-label"><span class="lib-name">' + esc(r.name) + "</span>" +
+        '<button class="hash" data-copy-hash="' + esc(r.ruleset_hash) +
+        '" title="Copy the full hash">' + esc(shortHash(r.ruleset_hash)) + "</button></td>" +
+        '<td data-label="Decides"><span class="lib-sum">' + esc(r.summary || "") + "</span></td>" +
+        '<td data-label="Claims" class="lib-num">' + counts(r.claim_count) + "</td>" +
+        '<td data-label="Rules" class="lib-num">' + counts(r.rule_count) + "</td>" +
+        '<td data-label="Approval">' + approval + "</td>" +
+        '<td data-label="Changed"><span class="lib-when">' + esc(whenText(r.bound_at)) +
+        "</span></td></tr>";
+    }).join("");
+  }
+
+  // The stored timestamp is UTC ISO 8601. Rendered in the reader's own locale
+  // because "when did this last change" is a question about their day, and
+  // shown as raw text if the browser cannot parse it rather than as "Invalid
+  // Date", which reads like a corrupted record.
+  function whenText(stamp) {
+    if (!stamp) return "";
+    const at = new Date(stamp);
+    if (isNaN(at.getTime())) return stamp;
+    return at.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  }
+
+  function showLibrary() {
+    $("empty").style.display = "none";
+    $("app").style.display = "none";
+    $("library").style.display = "block";
+  }
+
+  function showReview() {
+    $("empty").style.display = "none";
+    $("library").style.display = "none";
+    $("app").style.display = "block";
+  }
+
+  function renderSource() {
+    const note = $("source-recon-note");
+    if (state.knownSource === null) {
+      note.style.display = "block";
+      note.textContent = "This compile result carried no source text, so what follows is " +
+        "reconstructed from the manifest and will not compile as-is. Ask the model to " +
+        "re-compile, or load the ruleset by name.";
+    } else {
+      note.style.display = "none";
+    }
+    if (!state.editingDirty) {
+      $("source-edit").value = currentSourceText();
+    }
+    paintEditor();
+  }
+
+  // Repaint the highlight layer and gutter from the textarea's current text.
+  // A trailing newline is appended to the highlighted copy so the <pre> is
+  // never shorter than the textarea when the caret sits on an empty last line.
+  function paintEditor() {
+    const text = $("source-edit").value;
+    $("source-view").innerHTML = highlightWithClaimRefs(text, claimIdsFrom(state.manifest), null) + "\n";
+    const n = text.split(/\r?\n/).length;
+    // Grow to fit: (lines + 1 spare) * 20px line-height + 20px vertical padding,
+    // plus room for a horizontal scrollbar. No inner vertical scroll, ever.
+    $("editor").style.height = ((n + 1) * 20 + 20 + 12) + "px";
+    let nums = "";
+    for (let i = 1; i <= n; i++) nums += (i === 1 ? "" : "\n") + i;
+    $("gutter").textContent = nums;
+    syncEditorScroll();
+  }
+
+  function syncEditorScroll() {
+    const ta = $("source-edit");
+    $("source-view").scrollTop = ta.scrollTop;
+    $("source-view").scrollLeft = ta.scrollLeft;
+    $("gutter").scrollTop = ta.scrollTop;
+  }
+
+  // Set the editor's text programmatically (claim edits, revert) and mark
+  // whether it now differs from the committed revision.
+  function setEditorText(text) {
+    $("source-edit").value = text;
+    state.editingDirty = text !== currentSourceText();
+    paintEditor();
+  }
+
+  // ---- claim annotations: edited in the table, written into the source ------
+  // `// @ask <claim> text`, `// @context <claim> text`, `// @unit <claim> U`,
+  // `// @range <claim> min..max` — named directives (agent_api/annotations.py),
+  // so rewriting one line never disturbs another claim's. A blank value
+  // removes the line; a new one is inserted right after the claim's declare.
+  const ANNOTATION_KINDS = ["ask", "context", "unit", "range"];
+
+  function annotationLineRe(kind, claimId) {
+    const id = claimId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp("^[ \\t]*//[ \\t]*@" + kind + "[ \\t]+" + id + "(?:[ \\t]+.*)?$", "m");
+  }
+
+  function declareLineRe(claimId) {
+    const id = claimId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp("^.*\\bdeclare[ \\t]+" + id + "\\b.*$", "m");
+  }
+
+  function applyClaimEdit(claimId, kind, value) {
+    let text = $("source-edit").value;
+    const line = value === "" ? null : "// @" + kind + " " + claimId + " " + value;
+    const existing = annotationLineRe(kind, claimId);
+    if (existing.test(text)) {
+      text = text.replace(existing, line === null ? "" : line);
+      if (line === null) text = text.replace(/\n\n\n+/g, "\n\n");
+    } else if (line !== null) {
+      const decl = declareLineRe(claimId);
+      const m = text.match(decl);
+      if (m) {
+        text = text.slice(0, m.index + m[0].length) + "\n" + line + text.slice(m.index + m[0].length);
+      } else {
+        text = text.replace(/\s*$/, "") + "\n" + line + "\n";
+      }
+    }
+    setEditorText(text);
+  }
+
+  function claimEditor(c, kind, value, placeholder, mono) {
+    return '<input class="claim-edit' + (mono ? " mono" : "") + '" data-edit-claim="' + esc(c.claim) +
+      '" data-edit-kind="' + kind + '" value="' + esc(value || "") + '" placeholder="' + esc(placeholder) + '">';
+  }
+
+  function renderClaims() {
+    $("claims-body").innerHTML = (state.manifest.claims || []).map((c) => {
+      const sel = state.selectedClaim === c.claim;
+      let shape;
+      if (c.data_type === "numeric") {
+        shape = '<div class="claim-static">numeric</div>' +
+          claimEditor(c, "unit", c.unit, "unit (e.g. USD)", true) +
+          claimEditor(c, "range", c.range ? c.range.min + ".." + c.range.max : "", "range min..max", true);
+      } else {
+        shape = '<div class="claim-static">' + esc(shapeText(c)) + "</div>";
+      }
+      return '<tr class="claim-row' + (sel ? " sel" : "") + '" data-claim="' + esc(c.claim) + '">' +
+        '<td><code class="claim-name" data-claim="' + esc(c.claim) + '">' + esc(c.claim) + "</code></td>" +
+        "<td>" + shape + "</td>" +
+        "<td>" + claimEditor(c, "ask", c.question, "question the extractor is asked", false) +
+        claimEditor(c, "context", c.context, "context for the extractor (optional)", false) +
+        "</td></tr>";
+    }).join("");
+    for (const name of document.querySelectorAll("#claims-body .claim-name")) {
+      name.addEventListener("click", () => {
+        state.selectedClaim = state.selectedClaim === name.dataset.claim ? null : name.dataset.claim;
+        for (const row of document.querySelectorAll("#claims-body tr.claim-row")) {
+          row.classList.toggle("sel", row.dataset.claim === state.selectedClaim);
+        }
+        renderClaimsSourceView();
+      });
+    }
+    for (const input of document.querySelectorAll("#claims-body input[data-edit-claim]")) {
+      input.addEventListener("change", () => {
+        applyClaimEdit(input.dataset.editClaim, input.dataset.editKind, input.value.trim());
+      });
+    }
+    renderClaimsSourceView();
+  }
+
+  function renderClaimsSourceView() {
+    const assertions = manifestAssertions(state.manifest);
+    let text;
+    if (state.selectedClaim) {
+      const matching = assertions.filter((a) => a.source && new RegExp("\\b" + state.selectedClaim.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b").test(a.source));
+      text = matching.length
+        ? matching.map((a) => "// " + a.name + "\n" + a.source).join("\n\n")
+        : "// no rule's source text references " + state.selectedClaim;
+    } else {
+      text = "// select a claim above to see the rules that reference it";
+    }
+    $("claims-source-view").innerHTML = highlightWithClaimRefs(text, claimIdsFrom(state.manifest), state.selectedClaim);
+  }
+
+  function renderInputs() {
+    $("inputs").innerHTML = (state.manifest.claims || []).map((c) => {
+      const label = '<label>' + esc(c.claim) + ' <span class="q">— ' + esc(c.question || "") + "</span></label>";
+      if (c.data_type === "boolean") {
+        return '<div class="field">' + label +
+          '<select data-claim="' + esc(c.claim) + '" data-type="boolean">' +
+          '<option value="unknown">unknown</option><option value="true">true</option><option value="false">false</option>' +
+          "</select></div>";
+      }
+      if (c.data_type === "enum") {
+        return '<div class="field">' + label +
+          '<select data-claim="' + esc(c.claim) + '" data-type="enum">' +
+          '<option value="unknown">unknown</option>' +
+          (c.vocabulary || []).map((v) => '<option value="' + esc(v) + '">' + esc(v) + "</option>").join("") +
+          "</select></div>";
+      }
+      // Empty means unknown — there is no separate checkbox to disagree with
+      // the box. The unit travels with the value ("340 USD"): pre-filled with
+      // the claim's declared unit, editable so a value in another convertible
+      // unit can be exercised, and dropped when the claim declares none.
+      return '<div class="field">' + label +
+        '<div class="numrow"><input type="number" step="any" inputmode="decimal" data-claim="' + esc(c.claim) + '" data-type="numeric" placeholder="empty = unknown">' +
+        '<input type="text" class="unit" data-unit-for="' + esc(c.claim) + '" value="' + esc(c.unit || "") + '" placeholder="' + (c.unit ? "unit" : "no unit") + '" autocapitalize="off" autocorrect="off"></div></div>';
+    }).join("") || '<p class="hint">This ruleset declares no claims.</p>';
+  }
+
+  function collectClaims() {
+    const out = {};
+    for (const el of document.querySelectorAll("#inputs [data-claim][data-type]")) {
+      const id = el.dataset.claim;
+      if (el.dataset.type === "numeric") {
+        if (el.value.trim() === "") { out[id] = "unknown"; continue; }
+        const unitEl = document.querySelector('#inputs [data-unit-for="' + CSS.escape(id) + '"]');
+        const unit = unitEl ? unitEl.value.trim() : "";
+        out[id] = unit ? el.value.trim() + " " + unit : Number(el.value);
+      } else if (el.dataset.type === "boolean") {
+        out[id] = el.value === "unknown" ? "unknown" : el.value === "true";
+      } else {
+        out[id] = el.value;
+      }
+    }
+    return out;
+  }
+
+  // The four words the engine answers in, in the order a reader meets them.
+  const RESULTS = ["TRUE", "FALSE", "UNKNOWN", "AMBIGUOUS"];
+
+  function showResults(result) {
+    const v = $("results");
+    v.style.display = "block";
+    if (!result || result.ok === false) {
+      const err = (result && result.error) || {};
+      let body = '<div class="overall">Check did not complete</div>';
+      if (err.failures && err.failures.length) {
+        body += '<div class="rules-out">' + err.failures.map((f) =>
+          '<div class="rule-out"><div class="rr-top"><code>' + esc(f.field) + '</code></div>' +
+          '<div class="rr-src">expected ' + esc(f.expected) + ", got " + esc(f.received) + "</div></div>"
+        ).join("") + "</div>";
+      } else if (err.message) {
+        body += '<div class="note">' + esc(err.message) + "</div>";
+      }
+      v.innerHTML = body;
+      return;
+    }
+    // Every assertion, with the engine's own result and nothing derived from
+    // it. There is no overall verdict to show, so the header counts what came
+    // back rather than naming a decision this service does not make.
+    const assertions = (result.rules || []).flatMap((r) => (r.assertions || []).map(
+      (a) => Object.assign({ rule: r.rule }, a)));
+    const tally = {};
+    for (const a of assertions) {
+      const check = a.check || "UNKNOWN";
+      tally[check] = (tally[check] || 0) + 1;
+    }
+    // The four in contract order, then anything else the engine said. The
+    // service passes an unrecognised check through verbatim rather than
+    // translating it, so discarding it here would make the header disagree
+    // with the rows underneath it.
+    const ordered = RESULTS.concat(Object.keys(tally).filter((k) => !RESULTS.includes(k)));
+    const counted = ordered.filter((r) => tally[r]).map(
+      (r) => tally[r] + ' <span class="st ' + esc(r) + '">' + esc(r) + "</span>");
+    let html = '<div class="overall">' +
+      assertions.length + (assertions.length === 1 ? " assertion" : " assertions") +
+      (counted.length ? ": " + counted.join(", ") : "") + "</div>" +
+      '<div class="note">What the rules concluded. Nothing else is decided here — ' +
+      "an UNKNOWN is a legitimate answer, not an error and not a pass.</div>";
+    html += '<div class="rules-out">' + assertions.map((a) => {
+      const check = a.check || "UNKNOWN";
+      let extra = "";
+      if (a.source) extra += '<div class="rr-src">' + esc(a.source) + "</div>";
+      if (a.counterexample) extra += '<div class="rr-ce">counterexample: ' + esc(a.counterexample) + "</div>";
+      return '<div class="rule-out"><div class="rr-top"><code>' + esc(a.name) +
+        '</code><span class="st ' + esc(check) + '">' + esc(check) + "</span></div>" + extra + "</div>";
+    }).join("") + "</div>";
+    if ((result.claims && result.claims.unbound && result.claims.unbound.length)) {
+      html += '<div class="hint">No value: ' + result.claims.unbound.map(esc).join(", ") + "</div>";
+    }
+    v.innerHTML = html;
+  }
+
+  function renderDiff() {
+    const el = $("diff-body");
+    const parentHash = state.stored && state.stored.parent_hash;
+    if (!parentHash) {
+      el.innerHTML = '<p class="hint">This is the first revision — nothing to diff against.</p>';
+      return;
+    }
+    const parentSource = state.sourceByHash[parentHash];
+    if (parentSource === undefined) {
+      el.innerHTML = '<p class="gap-note">Parent revision <code class="mono">' + esc(parentHash.slice(0, 16)) +
+        "…</code> was compiled outside this widget session, so its source text is not held here " +
+        "and there is nothing to diff against. Revisions compiled or committed while this widget " +
+        "is open diff normally.</p>";
+      return;
+    }
+    const ops = diffLines(parentSource, currentSourceText());
+    el.innerHTML = ops.map((op) => {
+      const cls = op.type === "add" ? "diff-add" : op.type === "del" ? "diff-del" : "diff-ctx";
+      const sign = op.type === "add" ? "+ " : op.type === "del" ? "- " : "  ";
+      return '<div class="diff-line ' + cls + '">' + esc(sign + op.text) + "</div>";
+    }).join("");
+  }
+
+  function renderUnits(payload) {
+    const el = $("units-body");
+    if (!payload) { el.innerHTML = '<p class="hint">Loading…</p>'; return; }
+    if (payload.ok === false) {
+      el.innerHTML = '<p class="err">' + esc((payload.error && payload.error.message) || "could not load") + "</p>";
+      return;
+    }
+    let html = "<h3>Standards loaded</h3>";
+    html += (payload.standards_loaded || []).map((s) =>
+      '<div class="unit-item"><span>' + esc(s.name) + '</span><span class="hint">' + esc(s.id) + "</span></div>"
+    ).join("") || '<p class="hint">none</p>';
+    html += "<h3>Project converters</h3>";
+    const converters = payload.project_converters || [];
+    html += converters.length
+      ? converters.map((c) =>
+          '<div class="unit-item"><span>1 ' + esc(c.from) + " = " + esc(c.factor) +
+          (c.offset ? " + " + esc(c.offset) : "") + " " + esc(c.to) + "</span></div>"
+        ).join("")
+      : '<p class="hint">No project-specific converters yet.</p>';
+    html += '<p class="hint">' + esc(payload.note || "") + "</p>";
+    el.innerHTML = html;
+  }
+
+  function renderAll() {
+    renderHeader();
+    renderApproveTarget();
+    renderSource();
+    renderClaims();
+    renderInputs();
+    renderDiff();
+  }
+
+  function hydrateFromCompile(payload) {
+    if (!payload || !payload.ok || !payload.ruleset_hash || !payload.manifest) return;
+    state.hash = payload.ruleset_hash;
+    state.manifest = payload.manifest;
+    state.review = payload.review;
+    state.stored = payload.stored || null;
+    state.editingDirty = false;
+    if (typeof payload.source === "string" && payload.source.length) {
+      state.sourceByHash[state.hash] = payload.source;
+    }
+    state.knownSource = Object.prototype.hasOwnProperty.call(state.sourceByHash, state.hash)
+      ? state.sourceByHash[state.hash] : null;
+    // Approvals bind to a hash, so a NEW hash starts with none. A payload that
+    // carries the field is authoritative; one that does not (dsail_compile,
+    // which is pure over its inputs and reports no wall-clock facts) means
+    // fresh bytes nobody has signed.
+    state.approvals = Array.isArray(payload.approvals) ? payload.approvals : [];
+    // The name, on the other hand, is KEPT when a payload carries none. A
+    // commit produces a new hash that nothing names yet, and it is a revision
+    // OF the ruleset being edited — dropping the name here would make the
+    // Approve control ask for one again on every edit of something already in
+    // the library.
+    if (typeof payload.name === "string" && payload.name) state.name = payload.name;
+    $("approve").disabled = false;
+    $("approve").textContent = "Approve this hash";
+    $("name-prompt").style.display = "none";
+    $("approve-err").style.display = "none";
+    showReview();
+    renderAll();
+  }
+
+  function hydrateFromListing(payload) {
+    state.library = payload.rulesets || [];
+    $("lib-status").textContent = "";
+    renderLibrary();
+    showLibrary();
+  }
+
+  function parseResult(result) {
+    if (result && result.structuredContent) return result.structuredContent;
+    try { return JSON.parse(result.content[0].text); } catch (e) { return null; }
+  }
+
+  const app = shell.app;
+  app.onerror = (e) => console.error("[dsail-widget]", e);
+
+  // ---- the host: what it can do, and how it looks (TJP-620) ----------------
+  // Capability detection is a runtime probe of the MCP Apps handshake, never a
+  // vendor check. `serverTools`: the host proxies tools/call from this frame.
+  // `message`: the host accepts a ui/message and the model acts on it. A shim
+  // with no probe at all (the `dsail serve` page, which IS the tool router) is
+  // treated as direct-capable, because its callServerTool is the whole point.
+  const host = {
+    probed: typeof app.getHostCapabilities === "function",
+    caps: {},
+    ctx: {},
+    // The server's say, from `payload.widget.direct_calls` (wire 2.3.0). False
+    // forces the relay on a host that could call directly — the proof that the
+    // fallback is one code path in one widget, not a second widget.
+    directAllowed: true,
+  };
+  function readHost() {
+    try { host.caps = (host.probed && app.getHostCapabilities()) || {}; } catch (e) { host.caps = {}; }
+    try { host.ctx = (typeof app.getHostContext === "function" && app.getHostContext()) || {}; } catch (e) { host.ctx = {}; }
+  }
+  function canCallDirect() {
+    if (!host.directAllowed) return false;
+    return host.probed ? !!host.caps.serverTools : true;
+  }
+  function canRelay() {
+    if (typeof app.sendMessage !== "function") return false;
+    return host.probed ? !!host.caps.message : false;
+  }
+  function relayActive() { return !canCallDirect(); }
+
+  // One call site for every tool the widget invokes. Direct when the host
+  // allows it; otherwise the composed request goes to the conversation as a
+  // user message and the result is `{relayed: true}` — the caller then says so
+  // and waits for the model, which re-renders this widget with dsail_review.
+  async function invoke(call, relay) {
+    if (canCallDirect()) return { result: await app.callServerTool(call) };
+    if (canRelay()) {
+      await app.sendMessage({ role: "user", content: [{ type: "text", text: relay }] });
+      return { relayed: true };
+    }
+    throw new Error(
+      "This chat client cannot run tools from inside the widget and does not " +
+      "accept messages from it. Ask the assistant directly: " + relay.split("\n")[0]
+    );
+  }
+
+  // The composed messages. Each names the tool and the exact arguments, because
+  // the model is asked to relay the user's action, not to interpret it; the
+  // server instructions tell it to make exactly that call and then review the
+  // resulting hash. Source travels in a fenced block, byte for byte.
+  function relayApproval(name, approver, note) {
+    return "Record my approval of DSAIL ruleset " + state.hash + " (name \"" + name + "\").\n" +
+      "Call dsail_record_approval with ruleset_hash=\"" + state.hash + "\", approver=\"" + approver +
+      "\", note=" + (note ? JSON.stringify(note) : "null") + ", name=\"" + name + "\" — exactly these " +
+      "arguments — then call dsail_review(\"" + state.hash + "\") so I can see it recorded.";
+  }
+  function relayCommit(source) {
+    return "Commit my edit to DSAIL ruleset " + (state.name ? "\"" + state.name + "\"" : state.hash) + ".\n" +
+      "Call dsail_compile with parent_hash=\"" + state.hash + "\" and EXACTLY this source, byte for byte:\n\n" +
+      "```dsail\n" + source + "\n```\n\n" +
+      (state.name
+        ? "If it compiles, call dsail_save_ruleset with name=\"" + state.name + "\" and the same source, then "
+        : "If it compiles, ") +
+      "call dsail_review with the new ruleset_hash. If it does not compile, show me the diagnostics and change nothing.";
+  }
+  function relayCheck(claims) {
+    return "Check DSAIL ruleset " + state.hash + " against these claim values:\n\n```json\n" +
+      JSON.stringify(claims, null, 2) + "\n```\n\n" +
+      "Call dsail_check with ruleset_hash=\"" + state.hash + "\" and claims exactly as given, and report " +
+      "what the rules concluded for each assertion, in their own words.";
+  }
+  function relayLoad(name) {
+    return "Open my DSAIL ruleset \"" + name + "\": call dsail_load_ruleset with name=\"" + name + "\".";
+  }
+  function relayUnits() {
+    return "Show this project's DSAIL unit conversion library: call dsail_unit_library with no arguments.";
+  }
+  function relayConverter(args) {
+    return "Add a unit converter to my DSAIL project: call dsail_add_unit_converter with from_unit=\"" +
+      args.from_unit + "\", to_unit=\"" + args.to_unit + "\", factor=" + args.factor + ", offset=" + args.offset +
+      ", attribution=" + (args.attribution ? JSON.stringify(args.attribution) : "null") +
+      " — the factor is mine, do not change it — then show me the updated library.";
+  }
+
+  // What a control says after it has handed its request to the conversation.
+  function noteRelayed(el, what) {
+    el.textContent = "Handed to the conversation: " + what + ". This chat client does not run tools " +
+      "from inside the widget, so the assistant makes the call and shows the result — and an " +
+      "updated review — in the chat.";
+    el.classList.add("on");
+  }
+  function clearRelayNotes() {
+    for (const el of document.querySelectorAll(".relay-note")) el.classList.remove("on");
+  }
+  function renderBridgeState() {
+    const relay = relayActive();
+    $("relay-badge").style.display = relay ? "" : "none";
+    $("bridge-hint").textContent = relay
+      ? "This chat client does not run tools from inside the widget. Each action here is handed " +
+        "to the conversation and the assistant performs it."
+      : "Checks run through the connector; the first call may ask you to allow it.";
+  }
+
+  // Theme and platform, from the host's own context rather than guessed. The
+  // stylesheet keys on these two attributes; a host that says nothing leaves
+  // the system preference in charge.
+  function applyHostContext(ctx) {
+    const root = document.documentElement;
+    if (ctx.theme === "dark" || ctx.theme === "light") root.setAttribute("data-theme", ctx.theme);
+    else root.removeAttribute("data-theme");
+    if (ctx.platform) root.setAttribute("data-platform", String(ctx.platform));
+  }
+  readHost();
+  applyHostContext(host.ctx);
+  if (host.probed) {
+    try {
+      app.onhostcontextchanged = (changed) => {
+        host.ctx = Object.assign({}, host.ctx, changed || {});
+        applyHostContext(host.ctx);
+      };
+    } catch (e) { console.warn("[dsail-widget] host context changes unavailable", e); }
+  }
+
+  function handleToolResult(result) {
+    const payload = result && (result.structuredContent || parseResult(result));
+    // Every widget-bearing payload carries the server's say on direct calls;
+    // re-read the host too, in case the frame was hydrated before the
+    // handshake finished populating capabilities.
+    if (payload && payload.widget && typeof payload.widget.direct_calls === "boolean") {
+      host.directAllowed = payload.widget.direct_calls;
+    }
+    readHost();
+    applyHostContext(host.ctx);
+    clearRelayNotes();
+    // Three tools render into this frame and each is recognised by its own
+    // payload, not by a tool name the result does not carry: a listing has
+    // `rulesets`, one ruleset has a hash and a manifest.
+    if (payload && payload.ok && Array.isArray(payload.rulesets)) {
+      hydrateFromListing(payload);
+      return;
+    }
+    if (payload && payload.ruleset_hash && payload.manifest) { hydrateFromCompile(payload); return; }
+    // A failed compile still owns this iframe. Left blank it reads as a hang
+    // ("waiting..." forever, one per failed attempt while the model iterates);
+    // show what the compiler said instead, so the placeholder explains itself.
+    if (payload && payload.ok === false) {
+      const parts = describeCompileError(payload.error || {});
+      $("empty-msg").textContent = "This compile attempt did not succeed — the model has the same diagnostics and usually retries.";
+      $("empty-err").innerHTML = parts.map((t) => '<div class="diag">' + esc(t) + "</div>").join("");
+      $("empty-err").style.display = "block";
+    }
+  }
+
+  // ---- library nav --------------------------------------------------------
+  $("lib-body").addEventListener("click", (e) => {
+    const copy = e.target.closest("button[data-copy-hash]");
+    if (copy) {
+      // Copying a row's hash must not also open the row.
+      e.stopPropagation();
+      copyToClipboard(copy.dataset.copyHash, copy);
+      return;
+    }
+    const row = e.target.closest("tr.lib-row[data-hash]");
+    if (row) openRuleset(row.dataset.hash, row.dataset.name);
+  });
+
+  $("rs-hash").addEventListener("click", () => {
+    if (state.hash) copyToClipboard(state.hash, $("rs-hash"));
+  });
+
+  $("back-to-library").addEventListener("click", async () => {
+    showLibrary();
+    if (libraryStale) await refreshLibrary();
+  });
+
+  // Open one stored ruleset through dsail_review — the same call the model
+  // makes to present a compiled one, so this opens the review widget at the
+  // STORED hash rather than re-compiling anything.
+  async function openRuleset(hash, name) {
+    $("lib-status").textContent = "Opening…";
+    try {
+      // Relayed, the row asks the model to LOAD by name — the tool that opens a
+      // stored ruleset in a fresh widget — since a hash means nothing to the
+      // person reading the conversation.
+      const outcome = await invoke(
+        { name: "dsail_review", arguments: { ruleset_hash: hash } },
+        relayLoad(name || hash)
+      );
+      if (outcome.relayed) {
+        $("lib-status").textContent = "Handed to the conversation: the assistant opens “" +
+          (name || shortHash(hash)) + "” in a new review widget.";
+        return;
+      }
+      const payload = parseResult(outcome.result);
+      if (payload && payload.ok) {
+        $("lib-status").textContent = "";
+        hydrateFromCompile(payload);
+      } else {
+        const err = (payload && payload.error) || {};
+        $("lib-status").textContent = err.message || "That ruleset could not be opened.";
+      }
+    } catch (e) {
+      $("lib-status").textContent = String(e);
+    }
+  }
+
+  async function refreshLibrary() {
+    // A silent refresh is never relayed: a message the person did not ask for
+    // would land in their conversation. The listing they are holding stands.
+    if (!canCallDirect()) return;
+    try {
+      const result = await app.callServerTool({ name: "dsail_list_rulesets", arguments: {} });
+      const payload = parseResult(result);
+      if (payload && payload.ok) {
+        state.library = payload.rulesets || [];
+        renderLibrary();
+        libraryStale = false;
+      }
+    } catch (e) {
+      $("lib-status").textContent = String(e);
+    }
+  }
+
+  // ---- tab nav ------------------------------------------------------------
+  $("tabs").addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-tab]");
+    if (!btn) return;
+    for (const b of document.querySelectorAll("#tabs button")) b.classList.toggle("active", b === btn);
+    for (const s of document.querySelectorAll("section[data-panel]")) {
+      s.classList.toggle("active", s.dataset.panel === btn.dataset.tab);
+    }
+    if (btn.dataset.tab === "units") loadUnits();
+  });
+
+  // ---- exercise -------------------------------------------------------
+  $("run").addEventListener("click", async () => {
+    const btn = $("run");
+    $("uncommitted-warning").style.display = state.editingDirty ? "block" : "none";
+    btn.disabled = true; btn.textContent = "Checking…";
+    $("run-relay").classList.remove("on");
+    try {
+      const claims = collectClaims();
+      const outcome = await invoke(
+        { name: "dsail_check", arguments: { ruleset_hash: state.hash, claims: claims } },
+        relayCheck(claims)
+      );
+      if (outcome.relayed) { noteRelayed($("run-relay"), "a check of these claim values"); return; }
+      showResults(parseResult(outcome.result));
+    } catch (e) {
+      showResults({ ok: false, error: { message: String(e) } });
+    } finally {
+      btn.disabled = false; btn.textContent = "Run check";
+    }
+  });
+
+  // ---- approve ----------------------------------------------------------
+  // Approving SAVES. A person who compiled a ruleset, signed it and closed the
+  // conversation used to find nothing afterwards: approving and saving were
+  // separate acts and only one of them had been asked for. So a ruleset with no
+  // name is asked for one here, and the server binds it before it records the
+  // signature. Cancelling does neither — no call is made until there is a name.
+  $("approve").addEventListener("click", () => {
+    if (state.name) { runApproval(state.name); return; }
+    $("approve-err").style.display = "none";
+    $("name-prompt").style.display = "block";
+    $("save-name").focus();
+  });
+
+  $("cancel-approve").addEventListener("click", () => {
+    $("name-prompt").style.display = "none";
+    $("approve-err").style.display = "none";
+    $("save-name").value = "";
+  });
+
+  $("save-and-approve").addEventListener("click", () => {
+    const name = $("save-name").value.trim();
+    const errEl = $("approve-err");
+    if (!name) {
+      errEl.textContent = "Give the ruleset a name to save it under.";
+      errEl.style.display = "block";
+      $("save-name").focus();
+      return;
+    }
+    runApproval(name);
+  });
+
+  async function runApproval(name) {
+    const approver = $("approver").value.trim();
+    const errEl = $("approve-err");
+    errEl.style.display = "none";
+    if (!approver) {
+      errEl.textContent = "Enter who is approving this.";
+      errEl.style.display = "block";
+      $("approver").focus();
+      return;
+    }
+    const btn = $("approve");
+    btn.disabled = true; btn.textContent = "Approving…";
+    $("approve-relay").classList.remove("on");
+    try {
+      const note = $("approve-note").value.trim() || null;
+      const outcome = await invoke(
+        {
+          name: "dsail_record_approval",
+          arguments: { ruleset_hash: state.hash, approver: approver, note: note, name: name },
+        },
+        relayApproval(name, approver, note)
+      );
+      if (outcome.relayed) {
+        // Nothing is recorded until the model makes the call; the badge stays
+        // as it is and the updated widget the model renders is the record.
+        $("name-prompt").style.display = "none";
+        noteRelayed($("approve-relay"), "your approval of this hash as “" + name + "”");
+        btn.textContent = "Approval sent";
+        return;
+      }
+      const payload = parseResult(outcome.result);
+      if (payload && payload.ok !== false) {
+        state.name = payload.name || name;
+        state.approvals = payload.approvals || [];
+        libraryStale = true;
+        $("name-prompt").style.display = "none";
+        renderHeader();
+        renderApproveTarget();
+        btn.textContent = "Approved";
+      } else {
+        // The server binds the name BEFORE recording, so a refused name means
+        // nothing was saved and nothing was signed. Leave the prompt open on
+        // the name the person typed, so they can fix it.
+        errEl.textContent = (payload && payload.error && payload.error.message) || "approval failed";
+        errEl.style.display = "block";
+        btn.disabled = false; btn.textContent = "Approve this hash";
+      }
+    } catch (e) {
+      errEl.textContent = String(e);
+      errEl.style.display = "block";
+      btn.disabled = false; btn.textContent = "Approve this hash";
+    }
+  }
+
+  // ---- source edit / commit ---------------------------------------------
+  $("source-edit").addEventListener("input", () => {
+    state.editingDirty = $("source-edit").value !== currentSourceText();
+    paintEditor();
+  });
+  $("source-edit").addEventListener("scroll", syncEditorScroll);
+  // Tab inserts a tab instead of leaving the editor.
+  $("source-edit").addEventListener("keydown", (e) => {
+    if (e.key !== "Tab") return;
+    e.preventDefault();
+    const ta = e.target, start = ta.selectionStart, end = ta.selectionEnd;
+    ta.value = ta.value.slice(0, start) + "\t" + ta.value.slice(end);
+    ta.selectionStart = ta.selectionEnd = start + 1;
+    ta.dispatchEvent(new Event("input"));
+  });
+
+  function revertEdits() {
+    state.editingDirty = false;
+    setEditorText(currentSourceText());
+    $("commit-err").style.display = "none";
+    $("commit-claims-err").style.display = "none";
+    renderClaims();
+  }
+  $("revert").addEventListener("click", revertEdits);
+  $("revert-claims").addEventListener("click", revertEdits);
+
+  function describeCompileError(err) {
+    const parts = [];
+    if (err.diagnostics && err.diagnostics.length) {
+      for (const d of err.diagnostics) {
+        parts.push((d.line ? "line " + d.line + ": " : "") + (d.message || JSON.stringify(d)));
+      }
+    } else if (err.failures && err.failures.length) {
+      for (const f of err.failures) parts.push(f.field + " (" + f.received + ")");
+    } else {
+      parts.push(err.message || "compile failed");
+    }
+    return parts;
+  }
+
+  // One commit for both panels: the editor text is the single source of truth.
+  async function commitSource(btn, errEl, relayEl) {
+    errEl.style.display = "none";
+    relayEl.classList.remove("on");
+    const source = $("source-edit").value;
+    const label = btn.textContent;
+    btn.disabled = true; btn.textContent = "Compiling…";
+    try {
+      const outcome = await invoke(
+        { name: "dsail_compile", arguments: { source: source, parent_hash: state.hash } },
+        relayCommit(source)
+      );
+      if (outcome.relayed) {
+        // The model compiles these bytes itself, so its next conversational
+        // edit is built on them — the sync rule holds through the relay for
+        // the same reason it holds directly: no edit is real until compile
+        // has seen it, and here compile sees it in the model's own context.
+        noteRelayed(relayEl, "this edited source as a new revision" +
+          (state.name ? " of “" + state.name + "”" : ""));
+        return;
+      }
+      const payload = parseResult(outcome.result);
+      if (payload && payload.ok) {
+        state.sourceByHash[payload.ruleset_hash] = payload.source || source;
+        // A named ruleset's commit is a revision OF it, so the name moves to
+        // the new revision — otherwise the library keeps showing the text this
+        // edit replaced and its "changed" time never moves. dsail_save_ruleset
+        // links the previous hash as the parent from the existing binding. A
+        // ruleset with no name is left unsaved: committing is not the moment to
+        // decide what something is called.
+        if (state.name) await renameToRevision(payload.source || source, errEl);
+        hydrateFromCompile(payload);
+      } else {
+        const err = (payload && payload.error) || {};
+        errEl.innerHTML = describeCompileError(err).map((p) => '<div class="diag">' + esc(p) + "</div>").join("");
+        errEl.style.display = "block";
+      }
+    } catch (e) {
+      errEl.textContent = String(e);
+      errEl.style.display = "block";
+    } finally {
+      btn.disabled = false; btn.textContent = label;
+    }
+  }
+  async function renameToRevision(source, errEl) {
+    try {
+      const result = await app.callServerTool({
+        name: "dsail_save_ruleset",
+        arguments: { name: state.name, source: source },
+      });
+      const payload = parseResult(result);
+      if (payload && payload.ok) {
+        libraryStale = true;
+        return;
+      }
+      // The compile stands either way — these bytes are stored and this widget
+      // is about to show them. Only the library pointer did not move, and
+      // saying so is better than a library that quietly disagrees.
+      errEl.textContent = "Compiled, but “" + state.name + "” still points at the " +
+        "previous revision: " +
+        ((payload && payload.error && payload.error.message) || "the save was refused") + ".";
+      errEl.style.display = "block";
+    } catch (e) {
+      errEl.textContent = "Compiled, but the library was not updated: " + String(e);
+      errEl.style.display = "block";
+    }
+  }
+
+  $("commit").addEventListener("click", () => commitSource($("commit"), $("commit-err"), $("commit-relay")));
+  $("commit-claims").addEventListener("click", () =>
+    commitSource($("commit-claims"), $("commit-claims-err"), $("commit-claims-relay")));
+
+  // ---- units --------------------------------------------------------------
+  let unitsLoaded = false;
+  async function loadUnits() {
+    if (unitsLoaded) return;
+    unitsLoaded = true;
+    try {
+      const outcome = await invoke({ name: "dsail_unit_library", arguments: {} }, relayUnits());
+      if (outcome.relayed) {
+        $("units-body").innerHTML = '<p class="hint">Handed to the conversation: the assistant ' +
+          "shows this project's unit library in the chat. Converters can still be added below.</p>";
+        return;
+      }
+      const payload = parseResult(outcome.result);
+      state.unitLibraryHash = payload && payload.unit_library_hash;
+      renderUnits(payload);
+    } catch (e) {
+      unitsLoaded = false;
+      renderUnits({ ok: false, error: { message: String(e) } });
+    }
+  }
+
+  $("add-converter").addEventListener("click", async () => {
+    const errEl = $("conv-err");
+    errEl.style.display = "none";
+    const from_unit = $("conv-from").value.trim();
+    const to_unit = $("conv-to").value.trim();
+    const factor = parseFloat($("conv-factor").value);
+    if (!from_unit || !to_unit || !isFinite(factor) || factor === 0) {
+      errEl.textContent = "from unit, to unit and a non-zero factor are required.";
+      errEl.style.display = "block";
+      return;
+    }
+    const btn = $("add-converter");
+    btn.disabled = true; btn.textContent = "Adding…";
+    $("conv-relay").classList.remove("on");
+    try {
+      const args = {
+        from_unit: from_unit, to_unit: to_unit, factor: factor,
+        offset: parseFloat($("conv-offset").value) || 0,
+        attribution: $("conv-attribution").value.trim() || null,
+      };
+      const outcome = await invoke(
+        { name: "dsail_add_unit_converter", arguments: args }, relayConverter(args)
+      );
+      if (outcome.relayed) {
+        noteRelayed($("conv-relay"), "a converter from " + from_unit + " to " + to_unit);
+        return;
+      }
+      const payload = parseResult(outcome.result);
+      if (payload && payload.ok !== false) {
+        unitsLoaded = false;
+        await loadUnits();
+        $("conv-from").value = ""; $("conv-to").value = ""; $("conv-factor").value = ""; $("conv-offset").value = "0"; $("conv-attribution").value = "";
+      } else {
+        errEl.textContent = (payload && payload.error && payload.error.message) || "could not add converter";
+        errEl.style.display = "block";
+      }
+    } catch (e) {
+      errEl.textContent = String(e);
+      errEl.style.display = "block";
+    } finally {
+      btn.disabled = false; btn.textContent = "Add converter";
+    }
+  });
+
+  // Last: registering replays whatever the host already delivered, and by
+  // here every listener that a replayed render might need is attached.
+  shell.ready(handleToolResult);
+})();
+</script>

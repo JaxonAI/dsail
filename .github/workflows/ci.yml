@@ -1,0 +1,99 @@
+# CI for the public mirror.
+#
+# The mirror is read-only and pull requests are not merged here (CONTRIBUTING.md),
+# so this workflow is not the merge gate that decides what ships — the private
+# source repository runs the same two jobs and gates there. This runs anyway,
+# on every mirrored commit and on any pull request someone opens, because a
+# public repository whose CI status is unknown is not evidence of anything, and
+# because a reader deciding whether to install this package can see it pass.
+#
+# Both jobs are required status checks on the default branch, so a pull request
+# cannot be merged while either is red (TJP-664 AC6).
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  schedule:
+    # Catch a dependency advisory that lands after a release, not only at merge.
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Tests (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10', '3.11', '3.12', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install the package
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+      - name: Unit suite
+        # The live tests need a running service and a credential; they skip
+        # themselves when DSAIL_TEST_URL is unset, which is the case here.
+        run: python -m unittest discover -s test -t . -v
+      - name: The install carries no parser, compiler or solver
+        # The claim the README makes in its first screen, asserted rather than
+        # trusted. If a solver ever ships in this wheel, this is what says so.
+        run: |
+          python - <<'PY'
+          import importlib.util, sys
+          for name in ("z3", "antlr4", "common", "agent_api", "certasphere_common"):
+              if importlib.util.find_spec(name) is not None:
+                  sys.exit("FAIL: %s is importable from the installed environment" % name)
+          import dsail, dsail.contract
+          assert dsail.contract.tools()["tools"], "bundled tools missing"
+          print("OK: no parser, compiler or solver; contract bundle present")
+          PY
+
+  security:
+    name: Security scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install scanners
+        run: |
+          python -m pip install --upgrade pip
+          pip install "pip-audit==2.9.0" "bandit==1.8.6" "build==1.6.0" "twine==7.0.0"
+      - name: Dependency audit
+        # The runtime dependency set is one package (`mcp`); this is cheap and
+        # it is the half of the supply chain we do not compile ourselves.
+        run: |
+          pip install .
+          pip-audit --strict --progress-spinner off
+      - name: Static analysis
+        run: bandit -r src/dsail -ll
+      - name: Build and check the distribution
+        run: |
+          python -m build --sdist --wheel .
+          twine check --strict dist/*
+      - name: No credential in the tree
+        run: |
+          set +e
+          hits=$(grep -rEn \
+            'pypi-AgEIcHlwaS5vcmc|gh[pousr]_[A-Za-z0-9]{30,}|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY' \
+            --exclude-dir=.git --exclude-dir=dist . )
+          if [ -n "$hits" ]; then echo "$hits"; echo "credential-shaped string in the tree"; exit 1; fi
+          echo "clean"

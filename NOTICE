@@ -1,0 +1,7 @@
+dsail — the thin client for the Jaxon DSAIL service
+Copyright 2026 Jaxon, Inc.
+
+Licensed under the Apache License, Version 2.0. This license covers the client
+package only. Access to the DSAIL service is governed by Jaxon's service terms
+and requires a credential issued by Jaxon. "DSAIL" and "Jaxon" are trademarks
+of Jaxon, Inc.; this license grants no trademark rights.

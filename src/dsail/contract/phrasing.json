@@ -1,0 +1,96 @@
+{
+  "_about": [
+    "The agreed problem-language phrasing for every DSAIL agent-facing artifact (TJP-643).",
+    "Every MCP tool description, the server instructions, the repo READMEs, the `dsail init`",
+    "skill and every page of the docs site quote these strings VERBATIM. Drift across surfaces",
+    "is the failure mode; this file is the fix, and services/agent_api/test/test_phrasing.py is",
+    "the lint that enforces it. Change a phrase here and every surface changes with it.",
+    "Loader: agent_api/phrasing.py (standard library only)."
+  ],
+
+  "docs_url": "https://docs.agents.jaxon.ai",
+  "api_url": "https://agents.jaxon.ai",
+
+  "legal": {
+    "terms": "legal/terms.md",
+    "privacy": "legal/privacy.md",
+    "data_handling": "legal/data-handling.md",
+    "vocabulary": "legal/vocabulary.md"
+  },
+
+  "lead": "Turn a written policy into rules a program can check, and get the same answer every time.",
+
+  "trigger_phrases": {
+    "policy_to_rules": "turn a written policy into rules a program can check",
+    "same_answer": "the same answer every time",
+    "rule_that_decided": "the rule that decided, with a counterexample",
+    "unknown_is_an_answer": "unknown is an answer, not a guess",
+    "check_extracted_values": "check extracted values against a written policy",
+    "no_model_in_the_loop": "no model in the loop"
+  },
+
+  "avoid": {
+    "audit": "A weak discriminator on two independent measurements (TJP-646): it appears about as often on hard-negative prompts as on positives, and the claude.ai catalog returns ten unrelated results for it. Use it in a sentence, never as a lead or a title.",
+    "compliance": "Contested, not open: Vanta already sits on it in the claude.ai catalog. A page may say it; nothing leads with it.",
+    "guardrails": "Names a different need (output filtering, jailbreak defence). Use it only on the comparison page, by name.",
+    "policy engine / rules engine": "Zero catalog results (TJP-646) so the phrase is open, but it is the by-name vocabulary of OPA and Cedar. Use it on the comparison pages, where an agent arrives with that name, and nowhere as our own description."
+  },
+
+  "tools": {
+    "dsail_compile": "Turn a written policy into rules a program can check.",
+    "dsail_check": "Check extracted values against a written policy and get the same answer every time, with the rule that decided, with a counterexample when one is violated.",
+    "dsail_get_prompt_pack": "Get the exact questions to ask a document so the answers can be checked against a written policy.",
+    "dsail_save_ruleset": "Keep a written policy's rules as a named, immutable revision, so a later check answers exactly as this one did.",
+    "dsail_load_ruleset": "Show a saved policy ruleset exactly as it was stored.",
+    "dsail_list_rulesets": "See which written policies already have rules a program can check.",
+    "dsail_record_approval": "Bind a person's sign-off to the exact rules a program will check.",
+    "dsail_get_account_status": "Know how much of this credential's allowance is used before a limit interrupts a check.",
+    "dsail_unit_library": "Find out whether two units convert before a rule compares them, so the check does not answer UNKNOWN forever.",
+    "dsail_add_unit_converter": "Give a policy check the conversion it needs between two units, with a factor a person supplied.",
+    "dsail_review": "Show a person the rules a program will check, so they can approve exactly those bytes."
+  },
+
+  "surfaces": {
+    "claude-ai": "quickstart/claude-ai.md",
+    "chatgpt": "quickstart/chatgpt.md",
+    "claude-code": "quickstart/claude-code.md",
+    "codex": "quickstart/codex.md",
+    "rest": "quickstart/rest.md"
+  },
+
+  "comparisons": {
+    "opa": "compare/opa.md",
+    "cedar": "compare/cedar.md",
+    "guardrails": "compare/guardrails.md"
+  },
+
+  "long_tail_queries": [
+    {
+      "query": "enforce a written policy in an LLM application and get the same answer every time",
+      "page": "guides/same-answer-every-time.md",
+      "result": "unmeasured — record the outcome of a fresh agent session with web search here (TJP-643 AC4; a miss is a finding)"
+    },
+    {
+      "query": "turn a policy document into rules a program can check",
+      "page": "guides/policy-to-rules.md",
+      "result": "unmeasured"
+    },
+    {
+      "query": "explain a policy decision with the rule that decided and a counterexample",
+      "page": "guides/which-rule-decided.md",
+      "result": "unmeasured"
+    },
+    {
+      "query": "policy check when a value cannot be determined from the document",
+      "page": "guides/unknown-is-an-answer.md",
+      "result": "unmeasured"
+    },
+    {
+      "query": "check LLM output against a written policy without another LLM as the judge",
+      "page": "guides/no-model-in-the-loop.md",
+      "result": "unmeasured"
+    }
+  ],
+
+  "error_pages": "errors/<code-in-kebab-case>.md, one per agent_api.errors.ERROR_CODES entry"
+}
