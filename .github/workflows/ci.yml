@@ -103,10 +103,21 @@ jobs:
           python -m build --sdist --wheel .
           twine check --strict dist/*
       - name: No credential in the tree
+        # A backstop, not the gate. The authoritative scan runs in the private
+        # source repository over every revision of the published subtree, which
+        # is the only place that question can actually be answered -- this
+        # repository's history is squashed by construction and a clone of it
+        # cannot show what an old revision upstream contained.
+        #
+        # .github/workflows is excluded because this file carries the patterns
+        # as literal text in order to search for them, and a detector that
+        # matches itself reports a finding on every run, which trains everyone
+        # to ignore it. The exclusion is one directory wide and stated, rather
+        # than a pattern quietly weakened until it stops matching.
         run: |
           set +e
           hits=$(grep -rEn \
             'pypi-AgEIcHlwaS5vcmc|gh[pousr]_[A-Za-z0-9]{30,}|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY' \
-            --exclude-dir=.git --exclude-dir=dist . )
+            --exclude-dir=.git --exclude-dir=dist --exclude-dir=workflows . )
           if [ -n "$hits" ]; then echo "$hits"; echo "credential-shaped string in the tree"; exit 1; fi
           echo "clean"
