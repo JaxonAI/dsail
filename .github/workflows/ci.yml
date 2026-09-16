@@ -78,11 +78,24 @@ jobs:
           python -m pip install --upgrade pip
           pip install "pip-audit==2.9.0" "bandit==1.8.6" "build==1.6.0" "twine==7.0.0"
       - name: Dependency audit
-        # The runtime dependency set is one package (`mcp`); this is cheap and
-        # it is the half of the supply chain we do not compile ourselves.
+        # The runtime dependency set is one direct package (`mcp`) and its
+        # closure; this is cheap and it is the half of the supply chain we do
+        # not compile ourselves.
+        #
+        # Audit the closure, not this package. `pip-audit` resolves every
+        # installed distribution against PyPI's advisory feed, and under
+        # --strict a distribution it cannot find is an error rather than a
+        # warning. `dsail` built from this checkout is exactly that: the
+        # version here is normally ahead of the published one, and before the
+        # first release there is nothing published to match at all. Auditing
+        # our own package against an advisory feed would tell us nothing in any
+        # case -- an advisory about `dsail` would reach us long before PyPI.
         run: |
           pip install .
-          pip-audit --strict --progress-spinner off
+          pip freeze --exclude dsail --exclude-editable > /tmp/closure.txt
+          echo "auditing $(wc -l < /tmp/closure.txt) dependencies:"
+          cat /tmp/closure.txt
+          pip-audit --strict --progress-spinner off -r /tmp/closure.txt
       - name: Static analysis
         run: bandit -r src/dsail -ll
       - name: Build and check the distribution
