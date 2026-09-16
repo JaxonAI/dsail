@@ -37,6 +37,18 @@ Every structured error carries `docs`, the URL of the page that resolves it.
 Fetch it before retrying blind; the whole site is enumerated at
 https://docs.agents.jaxon.ai/llms.txt.
 
+ONLY dsail_check IS METERED. Authoring is free: compiling, reviewing, editing,
+saving, loading and approving a ruleset never consume an allowance and never
+stop working. If a check answers ENTITLEMENT_EXCEEDED, the account has used its
+checks for the month. Relay that error's message and its `upgrade_url` to the
+user as an invitation — paying happens on a page Stripe hosts, takes a minute,
+and resumes THIS conversation with nothing to reconnect and nothing to restart —
+then carry on when they say they are done. Do not retry the check in a loop and
+do not treat the limit as a failure of their policy or their claims. Call
+dsail_get_account_status when a user asks where they stand, or before a long
+batch of checks, so a limit is something they chose rather than something that
+interrupted them.
+
 Terms of service: https://docs.agents.jaxon.ai/legal/terms.md — privacy: https://docs.agents.jaxon.ai/legal/privacy.md — data handling:
 https://docs.agents.jaxon.ai/legal/data-handling.md. dsail_get_account_status reports which terms version
 applies to the caller's tier; quote it when a user asks what governs their use.

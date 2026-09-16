@@ -26,7 +26,7 @@ class BundleTests(unittest.TestCase):
     def test_tool_names_match_the_routing_table_exactly(self):
         names = [item["name"] for item in tools.definitions()]
         self.assertEqual(sorted(names), sorted(tools.ROUTES))
-        self.assertEqual(len(names), 10)
+        self.assertEqual(len(names), 11)
         self.assertTrue(all(name.startswith("dsail_") for name in names))
         self.assertNotIn(tools.REVIEW_TOOL, names, "the widget-only tool is not proxied")
 

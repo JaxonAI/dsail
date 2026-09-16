@@ -7,19 +7,15 @@
     "the lint that enforces it. Change a phrase here and every surface changes with it.",
     "Loader: agent_api/phrasing.py (standard library only)."
   ],
-
   "docs_url": "https://docs.agents.jaxon.ai",
   "api_url": "https://agents.jaxon.ai",
-
   "legal": {
     "terms": "legal/terms.md",
     "privacy": "legal/privacy.md",
     "data_handling": "legal/data-handling.md",
     "vocabulary": "legal/vocabulary.md"
   },
-
   "lead": "Turn a written policy into rules a program can check, and get the same answer every time.",
-
   "trigger_phrases": {
     "policy_to_rules": "turn a written policy into rules a program can check",
     "same_answer": "the same answer every time",
@@ -28,14 +24,12 @@
     "check_extracted_values": "check extracted values against a written policy",
     "no_model_in_the_loop": "no model in the loop"
   },
-
   "avoid": {
     "audit": "A weak discriminator on two independent measurements (TJP-646): it appears about as often on hard-negative prompts as on positives, and the claude.ai catalog returns ten unrelated results for it. Use it in a sentence, never as a lead or a title.",
     "compliance": "Contested, not open: Vanta already sits on it in the claude.ai catalog. A page may say it; nothing leads with it.",
     "guardrails": "Names a different need (output filtering, jailbreak defence). Use it only on the comparison page, by name.",
     "policy engine / rules engine": "Zero catalog results (TJP-646) so the phrase is open, but it is the by-name vocabulary of OPA and Cedar. Use it on the comparison pages, where an agent arrives with that name, and nowhere as our own description."
   },
-
   "tools": {
     "dsail_compile": "Turn a written policy into rules a program can check.",
     "dsail_check": "Check extracted values against a written policy and get the same answer every time, with the rule that decided, with a counterexample when one is violated.",
@@ -45,11 +39,11 @@
     "dsail_list_rulesets": "See which written policies already have rules a program can check.",
     "dsail_record_approval": "Bind a person's sign-off to the exact rules a program will check.",
     "dsail_get_account_status": "Know how much of this credential's allowance is used before a limit interrupts a check.",
+    "dsail_issue_api_key": "Move a policy check from a chat into production code without rewriting the rules a person already approved.",
     "dsail_unit_library": "Find out whether two units convert before a rule compares them, so the check does not answer UNKNOWN forever.",
     "dsail_add_unit_converter": "Give a policy check the conversion it needs between two units, with a factor a person supplied.",
     "dsail_review": "Show a person the rules a program will check, so they can approve exactly those bytes."
   },
-
   "surfaces": {
     "claude-ai": "quickstart/claude-ai.md",
     "chatgpt": "quickstart/chatgpt.md",
@@ -57,13 +51,11 @@
     "codex": "quickstart/codex.md",
     "rest": "quickstart/rest.md"
   },
-
   "comparisons": {
     "opa": "compare/opa.md",
     "cedar": "compare/cedar.md",
     "guardrails": "compare/guardrails.md"
   },
-
   "long_tail_queries": [
     {
       "query": "enforce a written policy in an LLM application and get the same answer every time",
@@ -91,6 +83,5 @@
       "result": "unmeasured"
     }
   ],
-
   "error_pages": "errors/<code-in-kebab-case>.md, one per agent_api.errors.ERROR_CODES entry"
 }

@@ -44,7 +44,7 @@
       "name": "dsail_compile"
     },
     {
-      "description": "Check extracted values against a written policy and get the same answer every time, with the rule that decided, with a counterexample when one is violated.\n\nValidate a claim dictionary and solve it against a ruleset, in one call.\n\nPass ruleset_hash (from dsail_compile) or source. claims maps every declared\nclaim name to a value. A claim you could not determine is submitted as the\nstring \"unknown\" — never a guess, never omitted.\n\nReturns every rule with the assertions it states, each carrying the engine's own\nresult — TRUE (it holds), FALSE (it is violated), UNKNOWN (a claim it needs was\nnot determined) or AMBIGUOUS (its evidence was contradicted) — plus the solver's\ncounterexample on a FALSE, and which claims had no value. If the dictionary is\nrejected, every failing field is named at once as {field, expected, received}.\n\nThere is no overall verdict, by design. Report what the rules concluded in those\nfour words and attribute them to the rules; deciding what a FALSE costs is the\ncaller's, not this service's and not yours.",
+      "description": "Check extracted values against a written policy and get the same answer every time, with the rule that decided, with a counterexample when one is violated.\n\nValidate a claim dictionary and solve it against a ruleset, in one call.\n\nPass ruleset_hash (from dsail_compile) or source. claims maps every declared\nclaim name to a value. A claim you could not determine is submitted as the\nstring \"unknown\" — never a guess, never omitted.\n\nReturns every rule with the assertions it states, each carrying the engine's own\nresult — TRUE (it holds), FALSE (it is violated), UNKNOWN (a claim it needs was\nnot determined) or AMBIGUOUS (its evidence was contradicted) — plus the solver's\ncounterexample on a FALSE, and which claims had no value. If the dictionary is\nrejected, every failing field is named at once as {field, expected, received}.\n\nThere is no overall verdict, by design. Report what the rules concluded in those\nfour words and attribute them to the rules; deciding what a FALSE costs is the\ncaller's, not this service's and not yours.\n\nThis is the one metered call. If it answers ENTITLEMENT_EXCEEDED, the account's\nchecks for this month are spent — nothing else is: compiling, editing, saving\nand approving still work. Relay that error's message to the user as an\ninvitation, together with its `upgrade_url`, and say that paying resumes this\nsame conversation with nothing to reconnect. Do not retry; the answer does not\nchange until they upgrade.",
       "inputSchema": {
         "properties": {
           "claims": {
@@ -265,13 +265,35 @@
       "name": "dsail_record_approval"
     },
     {
-      "description": "Know how much of this credential's allowance is used before a limit interrupts a check.\n\nThis credential's entitlement and usage position, so you can warn the user before a limit surprises them. Permissive stub in this release: the shape is final, the numbers arrive with metering enforcement. Also reports the current application-domain vocabulary version, whether this account may label rulesets, and `terms` — the terms-of-service version that governs this tier with the URLs of the terms, privacy and data-handling pages — so you can tell a user which terms apply without them going to look.",
+      "description": "Know how much of this credential's allowance is used before a limit interrupts a check.\n\nThis account's entitlement and usage position, so you can warn the user before a limit surprises them. `usage` is the meter that refuses the next check — used, limit and remaining — and `stub: false` means it is enforced. Only checks are metered; compiling, editing, saving, loading and approving rulesets are free and stay free at any limit. When the tier is gated the payload carries `upgrade_url`, a personalised link you may give the user at any time. Also reports the current application-domain vocabulary version, whether this account may label rulesets, and `terms` — the terms-of-service version that governs this tier with the URLs of the terms, privacy and data-handling pages — so you can tell a user which terms apply without them going to look. Do not read the `account.project` identifier out to a user; it names nothing they would recognise.",
       "inputSchema": {
         "properties": {},
         "title": "dsail_get_account_statusArguments",
         "type": "object"
       },
       "name": "dsail_get_account_status"
+    },
+    {
+      "description": "Move a policy check from a chat into production code without rewriting the rules a person already approved.\n\nIssue a production REST API key for this account, for code that will call DSAIL outside a chat. The key reaches exactly the rulesets this account already holds, so a check from a service answers what a check from here answers. Optional `label` records what it is for. The token comes back ONCE: show it to the user verbatim, tell them it is not recoverable, and do not repeat it later in the conversation or store it anywhere. Call this only when the user asks for one — an account has a limited number and `dsail_get_account_status` reports how many.",
+      "inputSchema": {
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Label"
+          }
+        },
+        "title": "dsail_issue_api_keyArguments",
+        "type": "object"
+      },
+      "name": "dsail_issue_api_key"
     },
     {
       "description": "Find out whether two units convert before a rule compares them, so the check does not answer UNKNOWN forever.\n\nWhat this project can convert between. DSAIL numerics are dimensional: a rule comparing a value in one unit against a literal in another resolves only if a converter bridges them, and if none does, that rule answers UNKNOWN for every claim dictionary, forever. Call this before writing rules that mix units. Pass from_unit and to_unit to ask about one pair and get one of: same, convertible (with the factor), ambiguous (an interval-valued conversion such as months to days, which makes the comparison honestly UNKNOWN), unknown_unit (in no loaded library, so probably a typo), or no_path (both known, nothing bridges them). Currencies ship as alias groups with NO exchange rates: a rate is not a constant.",

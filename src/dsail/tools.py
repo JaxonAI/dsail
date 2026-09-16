@@ -84,6 +84,10 @@ def _account(_args):
     return "GET", "/v1/account", None, None
 
 
+def _issue_api_key(args):
+    return "POST", "/v1/credentials/api-key", {"label": args.get("label")}, None
+
+
 def _units(args):
     if args.get("from_unit") and args.get("to_unit"):
         return "GET", "/v1/units/bridge", None, {
@@ -113,6 +117,7 @@ ROUTES = {
     "dsail_list_rulesets": _list,
     "dsail_record_approval": _approval,
     "dsail_get_account_status": _account,
+    "dsail_issue_api_key": _issue_api_key,
     "dsail_unit_library": _units,
     "dsail_add_unit_converter": _add_converter,
 }

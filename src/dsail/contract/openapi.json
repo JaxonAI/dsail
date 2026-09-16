@@ -209,6 +209,25 @@
         "title": "EvaluationCredentialRequest",
         "type": "object"
       },
+      "IssueApiKeyRequest": {
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What this key is for, e.g. 'invoice service'. Recorded on the credential so an operator can tell two of them apart; never required.",
+            "title": "Label"
+          }
+        },
+        "title": "IssueApiKeyRequest",
+        "type": "object"
+      },
       "PromptPackRequest": {
         "properties": {
           "ruleset_hash": {
@@ -320,7 +339,7 @@
             "description": "Successful Response"
           }
         },
-        "summary": "Entitlement and usage position (permissive stub in this release), plus the terms version and vocabulary version applicable to this tier",
+        "summary": "Entitlement and usage position — the enforced one since TJP-623 — plus the terms version and vocabulary version applicable to this tier",
         "tags": [
           "operations"
         ]
@@ -574,7 +593,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -731,7 +751,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -888,7 +909,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -1297,7 +1319,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -1454,7 +1477,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -1611,7 +1635,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -1768,7 +1793,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -1925,7 +1951,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -2481,7 +2508,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -2638,7 +2666,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -2795,7 +2824,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -2932,6 +2962,43 @@
         "summary": "Compile a ruleset; get its hash, manifest and validation contract",
         "tags": [
           "ruleset"
+        ]
+      }
+    },
+    "/v1/credentials/api-key": {
+      "post": {
+        "description": "Grade three, for a caller who has already proved the account is theirs.\n\nAuthenticated by whatever the caller already holds — the connector's\nOAuth subject through the MCP door, or an existing credential here — and\nissued into that caller's own namespace. There is deliberately no route\nthat issues one to the bearer of a link.",
+        "operationId": "issue_api_key_v1_credentials_api_key_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/IssueApiKeyRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Issue a production REST API key for the caller's own project (TJP-623). The token appears once.",
+        "tags": [
+          "operations"
         ]
       }
     },
@@ -3093,7 +3160,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -3250,7 +3318,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -3578,7 +3647,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -3735,7 +3805,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -3892,7 +3963,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -4049,7 +4121,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -4359,7 +4432,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -4516,7 +4590,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -4673,7 +4748,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -4987,7 +5063,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -5144,7 +5221,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -5301,7 +5379,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -5458,7 +5537,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -6060,7 +6140,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -6217,7 +6298,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -6374,7 +6456,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -6589,7 +6672,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -6775,7 +6859,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
@@ -6932,7 +7017,8 @@
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
-                            "EVALUATION_LIMIT"
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED"
                           ],
                           "type": "string"
                         },
