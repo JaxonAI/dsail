@@ -54,5 +54,3 @@ The client is Apache-2.0 (see [LICENSE](LICENSE) and [NOTICE](NOTICE)). A patch
 contributed through an issue is taken under that licence. Contributors are named
 in the commit that lands the change and in the release notes for the version
 that carries it.
-
-<!-- second drift probe, under branch protection -->
