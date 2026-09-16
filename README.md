@@ -218,5 +218,3 @@ DSAIL_TEST_URL=https://... scripts/test.sh   # and the live tests, against a run
 
 The unit suite is what CI runs on every change, and it needs no credential
 and no network.
-
-A line committed directly on the mirror, which is exactly what must never happen.
