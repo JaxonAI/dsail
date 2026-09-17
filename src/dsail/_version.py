@@ -5,4 +5,4 @@ Independent of the service's wire contract on purpose — the bundled
 against, and :func:`dsail.contract.versions` reads it.
 """
 
-__version__ = "0.1.0"
+__version__ = "1.0.0rc1"
