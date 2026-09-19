@@ -42,7 +42,15 @@
     "dsail_issue_api_key": "Move a policy check from a chat into production code without rewriting the rules a person already approved.",
     "dsail_unit_library": "Find out whether two units convert before a rule compares them, so the check does not answer UNKNOWN forever.",
     "dsail_add_unit_converter": "Give a policy check the conversion it needs between two units, with a factor a person supplied.",
-    "dsail_review": "Show a person the rules a program will check, so they can approve exactly those bytes."
+    "dsail_review": "Show a person the rules a program will check, so they can approve exactly those bytes.",
+    "dsail_create_team": "Start a team so colleagues share one set of policy rules.",
+    "dsail_invite_to_team": "Invite a colleague into a team by email address.",
+    "dsail_team_members": "See who is in a team and who administers it.",
+    "dsail_remove_from_team": "Take somebody out of a team and cut off the keys they issued for it.",
+    "dsail_set_team_role": "Let another member administer a team, or stop them administering it.",
+    "dsail_list_workspaces": "See which teams you work in and which one you are working in now.",
+    "dsail_use_workspace": "Work in a different team, or in your own workspace.",
+    "dsail_copy_ruleset": "Put a copy of one of your saved policy rulesets into a team."
   },
   "surfaces": {
     "claude-ai": "quickstart/claude-ai.md",
@@ -81,6 +89,11 @@
       "query": "check LLM output against a written policy without another LLM as the judge",
       "page": "guides/no-model-in-the-loop.md",
       "result": "unmeasured"
+    },
+    {
+      "query": "share policy rulesets with colleagues",
+      "page": "guides/share-rulesets-with-colleagues.md",
+      "result": "unmeasured — record the outcome of a fresh agent session with web search here (a miss is a finding)"
     }
   ],
   "error_pages": "errors/<code-in-kebab-case>.md, one per agent_api.errors.ERROR_CODES entry"

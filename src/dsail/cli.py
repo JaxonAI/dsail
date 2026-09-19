@@ -4,6 +4,7 @@
     dsail serve [FILE | --name N]   review UI at a localhost link
     dsail init [DIR]                write the skills, .mcp.json, .codex/config.toml and stanza
     dsail codex-plugin [DIR]        build the Codex plugin bundle
+    dsail plugin-bundle [DIR]       build the plugin bundle for Claude Code AND Codex
     dsail compile FILE              compile; print the payload (or --review)
     dsail prompt-pack (FILE | --hash H)
     dsail check (FILE | --hash H) --claims CLAIMS.json
@@ -22,7 +23,7 @@ import json
 import os
 import sys
 
-from dsail import contract, credentials
+from dsail import contract, credentials, session
 from dsail._version import __version__
 from dsail.client import DEFAULT_URL, ENV_URL, Client
 from dsail.errors import EgressBlocked, ServiceError, ServiceUnreachable
@@ -180,12 +181,31 @@ def cmd_codex_plugin(args):
         "Codex CLI, the IDE extension and the ChatGPT desktop app share the MCP "
         "configuration, so the server registers once.\n" % root
     )
+    _note_app_id(args)
+    return EXIT_OK
+
+
+def cmd_plugin_bundle(args):
+    from dsail import scaffold
+
+    root = os.path.abspath(args.dir)
+    outcomes = scaffold.plugin_bundle(root, url=args.url or os.environ.get(ENV_URL), app_id=args.app_id)
+    _print_outcomes(outcomes)
+    sys.stdout.write(
+        "\nClaude Code: `/plugin marketplace add %s` then `/plugin install %s@%s`. "
+        "Codex: `codex plugin marketplace add %s`, then /plugins.\n"
+        % (root, scaffold.PLUGIN_NAME, scaffold.MARKETPLACE_NAME, root)
+    )
+    _note_app_id(args)
+    return EXIT_OK
+
+
+def _note_app_id(args):
     if not args.app_id:
         sys.stdout.write(
             "No --app-id given, so no ChatGPT connector is bundled; pass the id OpenAI "
             "assigned the DSAIL app to include it.\n"
         )
-    return EXIT_OK
 
 
 def _print_outcomes(outcomes):
@@ -221,6 +241,132 @@ def cmd_credential(args):
     else:
         removed = credentials.forget()
         sys.stdout.write("removed\n" if removed else "nothing stored\n")
+    return EXIT_OK
+
+
+def cmd_login(args):
+    """Sign in, so calls about PEOPLE — teams, invitations — can be attributed.
+
+    Everything else this package does is scoped to a workspace and needs only a
+    credential, which is why the on-ramp hands one out with no human gate. This
+    is the first thing that needs to know who you are.
+    """
+    try:
+        outcome = session.login(
+            Client(url=args.url).url, open_browser=not args.no_browser,
+            printer=sys.stderr.write,
+        )
+    except session.LoginError as error:
+        sys.stderr.write("dsail login: %s\n" % error)
+        return EXIT_REFUSED
+    sys.stdout.write(
+        "signed in; session stored at %s\n"
+        "Your API key is untouched — that is what the programs you write keep "
+        "using.\n" % outcome["stored_at"]
+    )
+    return EXIT_OK
+
+
+def cmd_logout(args):
+    removed = session.forget()
+    sys.stdout.write(
+        "signed out (your API key is untouched)\n" if removed
+        else "not signed in\n"
+    )
+    return EXIT_OK
+
+
+def cmd_whoareyou(args):
+    """Whether this terminal has a person behind it, and what that unlocks."""
+    token = session.resolve()
+    if token is None:
+        sys.stdout.write(
+            "not signed in.\n"
+            "Calls carry a credential, which names a workspace rather than a "
+            "person, so compiling, checking, saving and loading all work — but "
+            "teams, invitations and switching workspace need `dsail login`.\n"
+        )
+        return EXIT_OK
+    sys.stdout.write("signed in (session stored at %s)\n" % session.session_path())
+    return EXIT_OK
+
+
+def _team_error(error):
+    """Print a service refusal, and the remedy when it named one."""
+    sys.stderr.write("dsail: %s\n" % error)
+    return EXIT_REFUSED
+
+
+def cmd_workspaces(args):
+    try:
+        payload = _client(args).workspaces()
+    except ServiceError as error:
+        return _team_error(error)
+    current = payload.get("current")
+    for row in payload.get("workspaces", []):
+        marker = "*" if row["workspace"] == current else " "
+        label = row["name"] if row["kind"] == "team" else "your own workspace"
+        sys.stdout.write("%s %-28s %s%s\n" % (
+            marker, label, row["team_id"] or "personal",
+            "  (%s)" % row["role"] if row.get("role") else ""))
+    if payload.get("signed_in") is False:
+        sys.stderr.write("\n%s\n" % payload.get("note", ""))
+    return EXIT_OK
+
+
+def cmd_use(args):
+    try:
+        chosen = _client(args).use_workspace(args.workspace)
+    except ServiceError as error:
+        return _team_error(error)
+    sys.stdout.write("now working in %s\n" % (chosen.get("name") or args.workspace))
+    return EXIT_OK
+
+
+def cmd_team(args):
+    client = _client(args)
+    try:
+        if args.action == "create":
+            payload = client.create_team(args.name)
+            sys.stdout.write("created %s (%s)\nIt starts empty — copy a ruleset in "
+                             "with `dsail copy <name> --to %s`.\n"
+                             % (payload["name"], payload["team_id"], payload["team_id"]))
+        elif args.action == "members":
+            payload = client.team_members(args.team_id)
+            for row in payload["members"]:
+                sys.stdout.write("%-40s %s\n" % (row["subject"], row["role"]))
+        elif args.action == "invite":
+            payload = client.invite_to_team(args.team_id, args.email)
+            sys.stdout.write(
+                "%s\n\nSend that link to %s. Only they can accept it, by signing "
+                "in as that address, and only once.\n"
+                % (payload["invitation"], args.email))
+        elif args.action == "promote":
+            client.set_team_role(args.team_id, args.member, "admin")
+            sys.stdout.write("%s can now administer this team\n" % args.member)
+        elif args.action == "demote":
+            client.set_team_role(args.team_id, args.member, "member")
+            sys.stdout.write("%s is now an ordinary member\n" % args.member)
+        else:
+            payload = client.remove_from_team(args.team_id, args.member)
+            sys.stdout.write(
+                "removed %s; %d key(s) they issued for this team revoked. "
+                "What they saved stays with the team.\n"
+                % (payload["removed"], payload["credentials_revoked"]))
+    except ServiceError as error:
+        return _team_error(error)
+    return EXIT_OK
+
+
+def cmd_copy(args):
+    try:
+        payload = _client(args).copy_ruleset(
+            args.name, args.to, source=args.source, new_name=args.as_name)
+    except ServiceError as error:
+        return _team_error(error)
+    sys.stdout.write(
+        "copied %s\nThe original is untouched, and the copy arrives unapproved: "
+        "an approval belongs to the workspace that recorded it.\n" % payload["name"])
     return EXIT_OK
 
 
@@ -292,15 +438,72 @@ def build_parser():
                    help="skip the Codex skill copy and .codex/config.toml")
     p.set_defaults(func=cmd_init)
 
-    p = sub.add_parser("codex-plugin", help="build the Codex plugin bundle (a private marketplace of one plugin)")
+    p = sub.add_parser("codex-plugin", help="build the Codex plugin bundle (a marketplace of one plugin)")
     p.add_argument("dir", nargs="?", default="dist/codex-plugin")
     p.add_argument("--app-id", default=None,
                    help="the ChatGPT app id OpenAI assigned the DSAIL connector; bundles it when given")
     p.set_defaults(func=cmd_codex_plugin)
 
+    p = sub.add_parser("plugin-bundle",
+                       help="build the plugin bundle for BOTH marketplaces, Claude Code and Codex, "
+                            "over one plugin directory (what the public repository's root carries)")
+    p.add_argument("dir", nargs="?", default="dist/plugin-bundle")
+    p.add_argument("--app-id", default=None,
+                   help="the ChatGPT app id OpenAI assigned the DSAIL connector; bundles it when given")
+    p.set_defaults(func=cmd_plugin_bundle)
+
     p = sub.add_parser("openapi", help="the bundled OpenAPI document")
     p.add_argument("--path", action="store_true", help="print the file path instead")
     p.set_defaults(func=cmd_openapi)
+
+    sub.add_parser(
+        "workspaces", help="every workspace you may work in"
+    ).set_defaults(func=cmd_workspaces)
+
+    p = sub.add_parser("use", help="work in a team, or in your own workspace")
+    p.add_argument("workspace", help="a team name or id, or `personal`")
+    p.set_defaults(func=cmd_use)
+
+    p = sub.add_parser("copy", help="copy a ruleset into another of your workspaces")
+    p.add_argument("name", help="the ruleset to copy")
+    p.add_argument("--to", required=True, help="destination: a team, or `personal`")
+    p.add_argument("--from", dest="source", default=None,
+                   help="source workspace (default: the one in use)")
+    p.add_argument("--as", dest="as_name", default=None,
+                   help="bind the copy under this name instead")
+    p.set_defaults(func=cmd_copy)
+
+    p = sub.add_parser("team", help="create a team, invite, remove, promote")
+    team_sub = p.add_subparsers(dest="action", required=True)
+    create = team_sub.add_parser("create", help="create a team (it starts empty)")
+    create.add_argument("name")
+    members = team_sub.add_parser("members", help="who is in a team")
+    members.add_argument("team_id")
+    invite = team_sub.add_parser("invite", help="invite somebody by email address")
+    invite.add_argument("team_id")
+    invite.add_argument("email")
+    for action, helptext in (("promote", "let a member administer the team"),
+                             ("demote", "return an administrator to a member"),
+                             ("remove", "remove a member and revoke their keys")):
+        one = team_sub.add_parser(action, help=helptext)
+        one.add_argument("team_id")
+        one.add_argument("member")
+    p.set_defaults(func=cmd_team)
+
+    p = sub.add_parser(
+        "login",
+        help="sign in, so teams and invitations can be attributed to you")
+    p.add_argument("--no-browser", action="store_true",
+                   help="print the URL instead of opening a browser")
+    p.set_defaults(func=cmd_login)
+
+    sub.add_parser(
+        "logout", help="sign out (leaves the stored credential alone)"
+    ).set_defaults(func=cmd_logout)
+
+    sub.add_parser(
+        "signed-in", help="whether this terminal has a person behind it"
+    ).set_defaults(func=cmd_whoareyou)
 
     p = sub.add_parser("credential", help="manage the stored credential")
     p.add_argument("action", choices=("set", "show", "forget"))

@@ -1,0 +1,44 @@
+{
+  "description": "Turn a written policy into rules a program can check, and get the same answer every time.",
+  "metadata": {
+    "pluginRoot": "./plugins"
+  },
+  "name": "jaxon",
+  "owner": {
+    "email": "info@jaxon.ai",
+    "name": "Jaxon, Inc.",
+    "url": "https://jaxon.ai/"
+  },
+  "plugins": [
+    {
+      "author": {
+        "email": "info@jaxon.ai",
+        "name": "Jaxon, Inc.",
+        "url": "https://jaxon.ai/"
+      },
+      "category": "developer-tools",
+      "description": "Turn a written policy into rules a program can check, and get the same answer every time.",
+      "displayName": "DSAIL",
+      "homepage": "https://docs.agents.jaxon.ai",
+      "keywords": [
+        "dsail",
+        "policy",
+        "rules",
+        "verification",
+        "mcp",
+        "claude-code",
+        "codex"
+      ],
+      "license": "Apache-2.0",
+      "name": "dsail",
+      "repository": "https://github.com/JaxonAI/dsail",
+      "source": "./plugins/dsail",
+      "tags": [
+        "turn a written policy into rules a program can check",
+        "the same answer every time",
+        "check extracted values against a written policy"
+      ],
+      "version": "1.0.0"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "dsail": {
+      "args": [
+        "mcp"
+      ],
+      "command": "dsail"
+    }
+  }
+}

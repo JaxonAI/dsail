@@ -1,0 +1,44 @@
+{
+  "author": {
+    "email": "info@jaxon.ai",
+    "name": "Jaxon, Inc.",
+    "url": "https://jaxon.ai/"
+  },
+  "description": "Turn a written policy into rules a program can check, and get the same answer every time.",
+  "homepage": "https://docs.agents.jaxon.ai",
+  "interface": {
+    "brandColor": "#1F3A5F",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "category": "Developer Tools",
+    "defaultPrompt": [
+      "Turn our written expense policy into rules a program can check",
+      "Check these extracted values against the policy and tell me which rule decided"
+    ],
+    "developerName": "Jaxon, Inc.",
+    "displayName": "DSAIL",
+    "longDescription": "Turn a written policy into rules a program can check, and get the same answer every time. A written policy becomes a formal ruleset; your model extracts the claim values; the hosted service returns each assertion's own result \u2014 TRUE, FALSE, UNKNOWN or AMBIGUOUS \u2014 with the rule that decided, with a counterexample when one is violated. No model in the loop: the service never calls one.",
+    "privacyPolicyURL": "https://docs.agents.jaxon.ai/legal/privacy.md",
+    "screenshots": [],
+    "shortDescription": "Turn a written policy into rules a program can check, and get the same answer every time.",
+    "termsOfServiceURL": "https://docs.agents.jaxon.ai/legal/terms.md",
+    "websiteURL": "https://docs.agents.jaxon.ai"
+  },
+  "keywords": [
+    "dsail",
+    "policy",
+    "rules",
+    "verification",
+    "mcp",
+    "claude-code",
+    "codex"
+  ],
+  "license": "Apache-2.0",
+  "mcpServers": "./.mcp.json",
+  "name": "dsail",
+  "repository": "https://github.com/JaxonAI/dsail",
+  "skills": "./skills/",
+  "version": "1.0.0"
+}

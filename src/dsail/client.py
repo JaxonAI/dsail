@@ -228,6 +228,46 @@ class Client:
                 "offset": offset, "attribution": attribution}
         return self._json("POST", "/v1/units/converters", body)
 
+    # ------------------------------------------------------------------ teams
+    #
+    # Everything here needs a SIGNED-IN PERSON, not a credential: membership is
+    # a fact about people, and a key names a workspace. `dsail login` is what
+    # puts one behind these calls; without it the service refuses them and says
+    # so, naming the command.
+
+    def workspaces(self):
+        """Every workspace you may work in, and which one is in use."""
+        return self._json("GET", "/v1/workspaces")
+
+    def use_workspace(self, workspace):
+        """Work in a team, or in your own workspace (``personal``)."""
+        return self._json("POST", "/v1/workspaces/current", {"workspace": workspace})
+
+    def create_team(self, name):
+        """Create a team with a ruleset library of its own. It starts empty."""
+        return self._json("POST", "/v1/teams", {"name": name})
+
+    def team_members(self, team_id):
+        return self._json("GET", "/v1/teams/%s/members" % team_id)
+
+    def invite_to_team(self, team_id, email):
+        """Issue a single-use invitation. The link comes back once."""
+        return self._json("POST", "/v1/teams/%s/invitations" % team_id,
+                          {"email": email})
+
+    def set_team_role(self, team_id, member, role):
+        return self._json("POST", "/v1/teams/%s/members/%s/role" % (team_id, member),
+                          {"role": role})
+
+    def remove_from_team(self, team_id, member):
+        return self._json("DELETE", "/v1/teams/%s/members/%s" % (team_id, member))
+
+    def copy_ruleset(self, name, destination, source=None, new_name=None):
+        """Copy one of your rulesets into another of your workspaces."""
+        return self._json("POST", "/v1/rulesets/%s/copies" % name,
+                          {"destination": destination, "source": source,
+                           "new_name": new_name})
+
     # ------------------------------------------------------------- credentials
 
     def store_credential(self, token):

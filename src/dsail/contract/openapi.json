@@ -190,6 +190,60 @@
         "title": "CompileRequest",
         "type": "object"
       },
+      "CopyRulesetRequest": {
+        "properties": {
+          "destination": {
+            "description": "Where to copy it TO: a team's name or id, or `personal`.",
+            "title": "Destination",
+            "type": "string"
+          },
+          "new_name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Bind the copy under this name instead. A name already in use in the destination is refused rather than overwritten.",
+            "title": "New Name"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where to copy it FROM. Defaults to the workspace in use.",
+            "title": "Source"
+          }
+        },
+        "required": [
+          "destination"
+        ],
+        "title": "CopyRulesetRequest",
+        "type": "object"
+      },
+      "CreateTeamRequest": {
+        "properties": {
+          "name": {
+            "description": "What to call the team. A label shown to its members, not an identifier: it need not be unique, and nothing is addressed by it.",
+            "maxLength": 64,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "CreateTeamRequest",
+        "type": "object"
+      },
       "EvaluationCredentialRequest": {
         "properties": {
           "client": {
@@ -207,6 +261,21 @@
           }
         },
         "title": "EvaluationCredentialRequest",
+        "type": "object"
+      },
+      "InviteRequest": {
+        "properties": {
+          "email": {
+            "description": "The address to invite. Only somebody signing in as this address can accept, and only once. The address itself is not stored.",
+            "maxLength": 254,
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "InviteRequest",
         "type": "object"
       },
       "IssueApiKeyRequest": {
@@ -256,6 +325,20 @@
         "title": "PromptPackRequest",
         "type": "object"
       },
+      "RoleRequest": {
+        "properties": {
+          "role": {
+            "description": "`admin` or `member`. Changes only who may invite, remove and promote — every member already reads and writes the whole of the team's library.",
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "title": "RoleRequest",
+        "type": "object"
+      },
       "SaveRulesetRequest": {
         "properties": {
           "label": {
@@ -296,6 +379,20 @@
           "source"
         ],
         "title": "SaveRulesetRequest",
+        "type": "object"
+      },
+      "UseWorkspaceRequest": {
+        "properties": {
+          "workspace": {
+            "description": "A team's name or id, or `personal` for your own workspace. Resolved against your own memberships, so two teams may share a name; an ambiguous name is refused and names the ids.",
+            "title": "Workspace",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace"
+        ],
+        "title": "UseWorkspaceRequest",
         "type": "object"
       }
     }
@@ -594,7 +691,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -752,7 +850,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -910,7 +1009,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -1320,7 +1420,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -1478,7 +1579,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -1636,7 +1738,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -1794,7 +1897,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -1952,7 +2056,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -2509,7 +2614,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -2667,7 +2773,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -2825,7 +2932,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -3161,7 +3269,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -3319,7 +3428,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -3648,7 +3758,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -3806,7 +3917,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -3964,7 +4076,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -4122,7 +4235,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -4433,7 +4547,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -4591,7 +4706,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -4749,7 +4865,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -5064,7 +5181,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -5222,7 +5340,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -5380,7 +5499,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -5538,7 +5658,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -6141,7 +6262,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -6299,7 +6421,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -6457,7 +6580,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -6597,6 +6721,233 @@
         ]
       }
     },
+    "/v1/rulesets/{name}/copies": {
+      "post": {
+        "operationId": "copy_ruleset_v1_rulesets__name__copies_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyRulesetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Copy one of your rulesets into another of your workspaces",
+        "tags": [
+          "teams"
+        ]
+      }
+    },
+    "/v1/teams": {
+      "post": {
+        "operationId": "create_team_v1_teams_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTeamRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Create a team with a ruleset library of its own",
+        "tags": [
+          "teams"
+        ]
+      }
+    },
+    "/v1/teams/{team_id}/invitations": {
+      "post": {
+        "operationId": "invite_to_team_v1_teams__team_id__invitations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "title": "Team Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Invite somebody by email. The link comes back once.",
+        "tags": [
+          "teams"
+        ]
+      }
+    },
+    "/v1/teams/{team_id}/members": {
+      "get": {
+        "operationId": "team_members_v1_teams__team_id__members_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "title": "Team Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Who is in this team, and who administers it",
+        "tags": [
+          "teams"
+        ]
+      }
+    },
+    "/v1/teams/{team_id}/members/{member}": {
+      "delete": {
+        "operationId": "remove_from_team_v1_teams__team_id__members__member__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "title": "Team Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "member",
+            "required": true,
+            "schema": {
+              "title": "Member",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Remove a member and revoke the keys they issued for this team",
+        "tags": [
+          "teams"
+        ]
+      }
+    },
+    "/v1/teams/{team_id}/members/{member}/role": {
+      "post": {
+        "operationId": "set_team_role_v1_teams__team_id__members__member__role_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "title": "Team Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "member",
+            "required": true,
+            "schema": {
+              "title": "Member",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Make a member an administrator, or return them to a member",
+        "tags": [
+          "teams"
+        ]
+      }
+    },
     "/v1/units": {
       "get": {
         "operationId": "unit_library_v1_units_get",
@@ -6673,7 +7024,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -6860,7 +7212,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -7018,7 +7371,8 @@
                             "CREDENTIAL_INVALID",
                             "CREDENTIAL_SCOPE",
                             "EVALUATION_LIMIT",
-                            "ENTITLEMENT_EXCEEDED"
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
                           ],
                           "type": "string"
                         },
@@ -7342,6 +7696,54 @@
         "summary": "The application-domain vocabulary: level one, level-two terms with provenance, version history, K and the promotion rule (TJP-642)",
         "tags": [
           "operations"
+        ]
+      }
+    },
+    "/v1/workspaces": {
+      "get": {
+        "operationId": "list_workspaces_v1_workspaces_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Every workspace you may work in, and which one is in use",
+        "tags": [
+          "teams"
+        ]
+      }
+    },
+    "/v1/workspaces/current": {
+      "post": {
+        "operationId": "use_workspace_v1_workspaces_current_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UseWorkspaceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Work in a different team, or in your own workspace",
+        "tags": [
+          "teams"
         ]
       }
     },

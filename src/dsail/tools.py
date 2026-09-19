@@ -107,6 +107,54 @@ def _add_converter(args):
     }, None
 
 
+# -- teams (TJP-660) ------------------------------------------------------
+#
+# Routed here like every other tool, so the stdio proxy a coding agent launches
+# reaches them exactly as the connector does. What differs is what the call
+# carries: these need a signed-in person, which `dsail login` provides, and the
+# service refuses them for a bare API key with a message naming that command.
+
+
+def _workspaces(args):
+    return "GET", "/v1/workspaces", None, None
+
+
+def _use_workspace(args):
+    return "POST", "/v1/workspaces/current", {"workspace": args.get("workspace")}, None
+
+
+def _create_team(args):
+    return "POST", "/v1/teams", {"name": args.get("name")}, None
+
+
+def _team_members(args):
+    return "GET", "/v1/teams/%s/members" % args.get("team_id"), None, None
+
+
+def _invite(args):
+    return ("POST", "/v1/teams/%s/invitations" % args.get("team_id"),
+            {"email": args.get("email")}, None)
+
+
+def _team_role(args):
+    return ("POST", "/v1/teams/%s/members/%s/role"
+            % (args.get("team_id"), args.get("member")),
+            {"role": args.get("role")}, None)
+
+
+def _remove_member(args):
+    return ("DELETE", "/v1/teams/%s/members/%s"
+            % (args.get("team_id"), args.get("member")), None, None)
+
+
+def _copy_ruleset(args):
+    return ("POST", "/v1/rulesets/%s/copies" % args.get("name"), {
+        "destination": args.get("destination"),
+        "source": args.get("source"),
+        "new_name": args.get("new_name"),
+    }, None)
+
+
 #: tool name -> function(arguments) -> (method, path, body, query)
 ROUTES = {
     "dsail_compile": _compile,
@@ -120,6 +168,14 @@ ROUTES = {
     "dsail_issue_api_key": _issue_api_key,
     "dsail_unit_library": _units,
     "dsail_add_unit_converter": _add_converter,
+    "dsail_list_workspaces": _workspaces,
+    "dsail_use_workspace": _use_workspace,
+    "dsail_create_team": _create_team,
+    "dsail_team_members": _team_members,
+    "dsail_invite_to_team": _invite,
+    "dsail_set_team_role": _team_role,
+    "dsail_remove_from_team": _remove_member,
+    "dsail_copy_ruleset": _copy_ruleset,
 }
 
 

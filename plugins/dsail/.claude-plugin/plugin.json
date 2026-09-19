@@ -1,0 +1,24 @@
+{
+  "author": {
+    "email": "info@jaxon.ai",
+    "name": "Jaxon, Inc.",
+    "url": "https://jaxon.ai/"
+  },
+  "description": "Turn a written policy into rules a program can check, and get the same answer every time.",
+  "homepage": "https://docs.agents.jaxon.ai",
+  "keywords": [
+    "dsail",
+    "policy",
+    "rules",
+    "verification",
+    "mcp",
+    "claude-code",
+    "codex"
+  ],
+  "license": "Apache-2.0",
+  "mcpServers": "./.mcp.json",
+  "name": "dsail",
+  "repository": "https://github.com/JaxonAI/dsail",
+  "skills": "./skills/",
+  "version": "1.0.0"
+}

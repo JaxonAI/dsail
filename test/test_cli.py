@@ -71,6 +71,17 @@ class OfflineCommandTests(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(root, "plugins", "dsail", ".app.json")))
         self.assertIn("No --app-id given", out)
 
+    def test_plugin_bundle_builds_both_marketplaces(self):
+        root = tempfile.mkdtemp(prefix="dsail-cli-bundle-")
+        code, out, _ = _run(["plugin-bundle", root])
+        self.assertEqual(code, cli.EXIT_OK)
+        self.assertTrue(os.path.exists(os.path.join(root, ".claude-plugin", "marketplace.json")))
+        self.assertTrue(os.path.exists(os.path.join(root, ".agents", "plugins", "marketplace.json")))
+        self.assertTrue(os.path.exists(os.path.join(root, "plugins", "dsail", ".claude-plugin", "plugin.json")))
+        self.assertTrue(os.path.exists(os.path.join(root, "plugins", "dsail", ".codex-plugin", "plugin.json")))
+        self.assertIn("/plugin marketplace add", out)
+        self.assertIn("codex plugin marketplace add", out)
+
     def test_credential_round_trip_in_a_private_config_dir(self):
         config = tempfile.mkdtemp(prefix="dsail-cred-")
         with mock.patch.dict(os.environ, {"DSAIL_CONFIG_DIR": config, "DSAIL_CREDENTIAL": ""}):

@@ -40,8 +40,13 @@ keywords = [
     "scoring-rubric",
     "compliance-review",
 ]
+# 1.0.0 is generally available, so the maturity classifier says so: a 1.x
+# version paired with Beta or Alpha tells the same reader two contradictory
+# things (TJP-624). This line diverges from TJP-647's promoted
+# `pypi.keywords_classifiers` variant on purpose; that bundle was scored for
+# retrieval, where the classifier contributes nothing.
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Legal Industry",
     "Intended Audience :: Financial and Insurance Industry",
     "Intended Audience :: Developers",

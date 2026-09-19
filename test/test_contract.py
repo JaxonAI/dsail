@@ -26,7 +26,11 @@ class BundleTests(unittest.TestCase):
     def test_tool_names_match_the_routing_table_exactly(self):
         names = [item["name"] for item in tools.definitions()]
         self.assertEqual(sorted(names), sorted(tools.ROUTES))
-        self.assertEqual(len(names), 11)
+        # Eleven for the authoring sequence and units, plus the eight team tools
+        # (TJP-660). They are proxied here, unlike on the open SSE door, because
+        # this transport's caller is a coding agent: somebody's session, which
+        # signs in with `dsail login` and forwards a bearer token.
+        self.assertEqual(len(names), 19)
         self.assertTrue(all(name.startswith("dsail_") for name in names))
         self.assertNotIn(tools.REVIEW_TOOL, names, "the widget-only tool is not proxied")
 

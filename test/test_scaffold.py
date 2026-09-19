@@ -18,6 +18,20 @@ ALL_FILES = {
     "AGENTS.md",
 }
 
+# The package root: this test file is <root>/test/test_scaffold.py. The public
+# repository's root carries the plugin bundle, and it is the same tree.
+PACKAGE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+BUNDLE_FILES = (
+    scaffold.CLAUDE_MARKETPLACE_RELATIVE,
+    scaffold.PLUGIN_MARKETPLACE_RELATIVE,
+    os.path.join("plugins", "dsail", scaffold.CLAUDE_PLUGIN_MANIFEST_RELATIVE),
+    os.path.join("plugins", "dsail", scaffold.PLUGIN_MANIFEST_RELATIVE),
+    os.path.join("plugins", "dsail", ".mcp.json"),
+    os.path.join("plugins", "dsail", "README.md"),
+    os.path.join("plugins", "dsail", "skills", "dsail", "SKILL.md"),
+)
+
 
 class InitTests(unittest.TestCase):
     def setUp(self):
@@ -198,6 +212,78 @@ class CodexPluginTests(unittest.TestCase):
         scaffold.codex_plugin(self.root, app_id="asdk_app_0123")
         outcomes = scaffold.codex_plugin(self.root, app_id="asdk_app_0123")
         self.assertEqual(set(outcomes.values()), {"unchanged"})
+
+
+class PluginBundleTests(unittest.TestCase):
+    """One plugin directory, two marketplaces — and the committed copy is generated."""
+
+    def setUp(self):
+        self.root = tempfile.mkdtemp(prefix="dsail-bundle-")
+
+    def _json(self, root, relative):
+        with open(os.path.join(root, relative), "r", encoding="utf-8") as handle:
+            return json.load(handle)
+
+    def _text(self, root, relative):
+        with open(os.path.join(root, relative), "r", encoding="utf-8") as handle:
+            return handle.read()
+
+    def test_the_bundle_carries_both_marketplaces_over_one_plugin(self):
+        outcomes = scaffold.plugin_bundle(self.root)
+        self.assertEqual(set(outcomes), set(BUNDLE_FILES))
+        self.assertEqual(set(outcomes.values()), {"created"})
+        lead = contract.phrasing()["lead"]
+
+        marketplace = self._json(self.root, scaffold.CLAUDE_MARKETPLACE_RELATIVE)
+        self.assertEqual(marketplace["name"], scaffold.MARKETPLACE_NAME)
+        self.assertEqual(marketplace["owner"]["name"], "Jaxon, Inc.")
+        self.assertEqual(marketplace["metadata"], {"pluginRoot": "./plugins"})
+        (entry,) = marketplace["plugins"]
+        self.assertEqual(entry["name"], "dsail")
+        self.assertEqual(entry["source"], "./plugins/dsail")
+        self.assertEqual(entry["description"], lead)
+        self.assertEqual(entry["version"], __version__)
+        self.assertEqual(entry["homepage"], contract.docs_url())
+        self.assertEqual(entry["repository"], scaffold.PUBLIC_REPOSITORY)
+        for tag in entry["tags"]:
+            self.assertIn(tag, contract.phrasing()["trigger_phrases"].values())
+
+        manifest = self._json(self.root, os.path.join("plugins", "dsail", scaffold.CLAUDE_PLUGIN_MANIFEST_RELATIVE))
+        self.assertEqual(manifest["name"], "dsail")
+        self.assertEqual(manifest["version"], __version__)
+        self.assertEqual(manifest["description"], lead)
+        self.assertEqual(manifest["skills"], "./skills/")
+        self.assertEqual(manifest["mcpServers"], "./.mcp.json")
+
+        # The Codex half is untouched by the Claude half.
+        codex = self._json(self.root, os.path.join("plugins", "dsail", scaffold.PLUGIN_MANIFEST_RELATIVE))
+        self.assertEqual(codex["version"], __version__)
+        readme = self._text(self.root, os.path.join("plugins", "dsail", "README.md"))
+        self.assertIn("/plugin marketplace add JaxonAI/dsail", readme)
+        self.assertIn("/plugin install dsail@jaxon", readme)
+        self.assertIn("codex plugin marketplace add", readme)
+        self.assertNotIn(self.root, readme, "the README must not carry a build machine's path")
+
+    def test_the_committed_bundle_is_what_the_package_generates(self):
+        """The public repository's root IS the bundle; it must be regenerated with the version.
+
+        `dsail plugin-bundle sdk/dsail` refreshes it. Skipped when the bundle is
+        not beside this test (an installed wheel), never when it is stale.
+        """
+        committed = os.path.join(PACKAGE_ROOT, scaffold.CLAUDE_MARKETPLACE_RELATIVE)
+        if not os.path.exists(committed):
+            self.skipTest("no committed bundle beside this test")
+        scaffold.plugin_bundle(self.root)
+        for relative in BUNDLE_FILES:
+            with self.subTest(file=relative):
+                self.assertEqual(
+                    self._text(self.root, relative), self._text(PACKAGE_ROOT, relative),
+                    "%s is stale: run `dsail plugin-bundle sdk/dsail` and commit" % relative,
+                )
+
+    def test_rebuild_is_unchanged(self):
+        scaffold.plugin_bundle(self.root)
+        self.assertEqual(set(scaffold.plugin_bundle(self.root).values()), {"unchanged"})
 
 
 if __name__ == "__main__":

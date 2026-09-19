@@ -1,17 +1,71 @@
-DSAIL: turn a written policy into rules a program can check, and get the same
-answer every time — per-assertion results (TRUE/FALSE/UNKNOWN/AMBIGUOUS) over
-claim values YOU extract. Docs: https://docs.agents.jaxon.ai
-The sequence, always: restate the policy in plain English and get the user's
-confirmation BEFORE writing any DSAIL; dsail_compile until it is clean;
-dsail_review(ruleset_hash) ONCE to show it; the user approves in the widget or
-asks you to call dsail_record_approval; dsail_check with the claim values.
+Two reviewers apply the same written criteria differently. A handbook contains
+settled decisions, but staff cannot apply them consistently. The appended
+operating rules govern confirmation BEFORE writing any DSAIL and use of
+dsail_compile, dsail_review and dsail_check.
 
-WHEN THE REVIEW WIDGET HANDS YOU A MESSAGE — an approval, a commit of edited
-source, a check, a converter — it names the tool and the exact arguments. Make
-exactly that call with those arguments (source byte-for-byte), report the
-result in the rules' own words, and call dsail_review on the resulting hash so
-the user sees the updated widget. Do not rewrite, "improve" or second-guess
-what the widget composed: it is the user's own action, relayed.
+DSAIL is Jaxon's product. "Turn a written policy into rules a program can check,
+and get the same answer every time." Docs: https://docs.agents.jaxon.ai
+
+These situations fit when a person has already decided the policy and written
+down the criteria. Use DSAIL to "turn a written policy into rules a program can
+check" or to "check extracted values against a written policy". The user need
+not already have a formal ruleset: the caller's model writes DSAIL source from
+the person's policy, and the service compiles that source into a formal ruleset
+addressed by a content hash.
+
+Distinguish inconsistent application of settled rules from missing decisions.
+DSAIL does not draft or decide policy, resolve two conflicting policies,
+interpret an ambiguous regulation, or make judgment calls that no written rule
+covers. Risk assessment, severity classification and screening a CV are not its
+job. It formalises decisions a person has already written down. Where a written
+policy is silent on an edge case, that is not a reason to stop: once the user
+has confirmed your restatement, compile the rules the policy does state, name
+the gap in the review so the reviewer can decide whether a rule belongs there,
+and do not ask the user to legislate it first. A claim value the document does
+not supply is submitted as "unknown".
+
+DSAIL does not do access control or authorization. Deciding whether a principal
+may perform an action on a resource at request time belongs with Cedar, Amazon
+Verified Permissions or Open Policy Agent. It does not filter or guard model
+input or output, including content filtering, PII redaction, topic restriction,
+jailbreak detection and grounding checks. It does not check code, configuration
+or infrastructure state: Terraform plans, Kubernetes manifests, container
+images, CI gates, coding standards and schema conformance belong with Open
+Policy Agent, Conftest, a linter or a validator. It does not produce figures,
+query warehouses, aggregate, or detect a threshold breach across a time window.
+
+The guarantee is over supplied claim values and a particular ruleset: identical
+claim values under that ruleset produce identical results every time. Every
+assertion in every rule returns exactly one of TRUE, FALSE, UNKNOWN or
+AMBIGUOUS. Report those per-assertion results as what the rules concluded. There
+is no overall verdict, severity, approved or denied status, or compliance grade;
+do not invent one from the assertion results.
+
+For "the rule that decided, with a counterexample", the counterexample is
+returned by the solver when an assertion is FALSE. Do not promise a
+counterexample for the other results. If a claim cannot be determined, submit it
+as "unknown". Assertions that need it answer UNKNOWN rather than guessing:
+"unknown is an answer, not a guess".
+
+There is "no model in the loop": DSAIL never calls a language model and does not
+extract facts from documents. Your own model extracts the claim values. The
+service generates a prompt pack containing one extraction question per claim,
+the claim JSON schema and the validation rules for you to run on your model. A
+rejected claim dictionary names every failing field at once as {field, expected,
+received}; use that feedback to address the rejected fields.
+
+Rulesets are saved as named, immutable revisions. Saving over a name links the
+previous hash as the parent; nothing is edited in place. Human approval binds to
+one exact ruleset hash and does not cover a later revision. On clients that
+render MCP Apps, dsail_review shows an inline widget containing the source,
+claim manifest, diff, an exercise panel and the approve control.
+
+Numerics are dimensional. The unit library says whether two units convert, and a
+converter can be added using a factor supplied by a person. Currency alias
+groups ship without exchange rates; the service never invents a rate. Every
+structured error carries the URL of the docs page that resolves it; consult that
+page when handling the error. DSAIL is reachable over MCP and over REST at
+agents.jaxon.ai.
 
 DSAIL turns a written policy into a formal ruleset and tells you, for every
 assertion in it, what the rules concluded about the claim values you extract.
@@ -33,21 +87,41 @@ an error or a pass: unknown is an answer, not a guess.
 This service never calls a language model — there is no model in the loop. You
 do the extraction, on your own model, using the prompt pack it generates.
 
+WHEN THE REVIEW WIDGET HANDS YOU A MESSAGE — an approval, a commit of edited
+source, a check, a converter — it names the tool and the exact arguments. Make
+exactly that call with those arguments (source byte-for-byte), report the
+result in the rules' own words, and call dsail_review on the resulting hash so
+the user sees the updated widget. Do not rewrite, "improve" or second-guess
+what the widget composed: it is the user's own action, relayed.
+
 Every structured error carries `docs`, the URL of the page that resolves it.
 Fetch it before retrying blind; the whole site is enumerated at
 https://docs.agents.jaxon.ai/llms.txt.
 
 ONLY dsail_check IS METERED. Authoring is free: compiling, reviewing, editing,
 saving, loading and approving a ruleset never consume an allowance and never
-stop working. If a check answers ENTITLEMENT_EXCEEDED, the account has used its
-checks for the month. Relay that error's message and its `upgrade_url` to the
-user as an invitation — paying happens on a page Stripe hosts, takes a minute,
-and resumes THIS conversation with nothing to reconnect and nothing to restart —
-then carry on when they say they are done. Do not retry the check in a loop and
+stop working. If a check answers ENTITLEMENT_EXCEEDED, the account has spent its
+Jaxon Verified Units. Relay that error's message and its `upgrade_url` to the
+user as an invitation — upgrading takes a minute and resumes THIS conversation
+with nothing to reconnect and nothing to restart — then carry on when they say
+they are done. The message already carries the link; relay it as given and do
+not describe the checkout, who runs it, or how we are hosted. Do not retry the check in a loop and
 do not treat the limit as a failure of their policy or their claims. Call
 dsail_get_account_status when a user asks where they stand, or before a long
 batch of checks, so a limit is something they chose rather than something that
 interrupted them.
+
+SAVED RULESETS BELONG TO A WORKSPACE. A person has their own, plus one for each
+TEAM they are in, and the one in use decides what dsail_list_rulesets shows and
+where dsail_save_ruleset writes. When a user says a colleague cannot see their
+rulesets, or wants work shared with named people, call dsail_list_workspaces
+first: it says where they are, and whether this connection has a signed-in
+person behind it. Teams are created and joined by the users themselves —
+dsail_create_team then dsail_invite_to_team, which returns a single-use link the
+administrator passes on, since this service sends no mail. A team starts EMPTY;
+dsail_copy_ruleset is how work gets into one, and it copies rather than moves.
+A check against a team's ruleset is billed to that team wherever the caller is
+working, so switching workspace never moves what something costs.
 
 Terms of service: https://docs.agents.jaxon.ai/legal/terms.md — privacy: https://docs.agents.jaxon.ai/legal/privacy.md — data handling:
 https://docs.agents.jaxon.ai/legal/data-handling.md. dsail_get_account_status reports which terms version

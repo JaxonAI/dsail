@@ -38,7 +38,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from dsail import credentials, environment
+from dsail import credentials, environment, session
 from dsail._version import __version__
 from dsail.errors import EgressBlocked, ServiceUnreachable
 
@@ -101,6 +101,7 @@ class Transport:
     def __init__(self, base_url, credential=None, timeout=120, door=None):
         self.base_url = base_url.rstrip("/")
         self.credential = credentials.resolve(credential)
+        self.session = session.resolve()
         self.timeout = timeout
         self.door = door
 
@@ -122,6 +123,12 @@ class Transport:
             headers["content-type"] = "application/json"
         if self.credential:
             headers[credentials.HEADER] = self.credential
+        # Both, when both are held, and that is the point: the session says WHO
+        # is calling, the key says which workspace unattended code may reach.
+        # The service reads the session for anything about people and the key
+        # for everything else, so sending one must not mean dropping the other.
+        if self.session:
+            headers["authorization"] = "Bearer " + self.session
         if self.door:
             headers[DOOR_HEADER] = self.door
         request = urllib.request.Request(url, data=data, headers=headers, method=method)

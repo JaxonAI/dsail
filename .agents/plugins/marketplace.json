@@ -1,0 +1,20 @@
+{
+  "interface": {
+    "displayName": "Jaxon"
+  },
+  "name": "jaxon",
+  "plugins": [
+    {
+      "category": "Developer Tools",
+      "name": "dsail",
+      "policy": {
+        "authentication": "ON_FIRST_USE",
+        "installation": "AVAILABLE"
+      },
+      "source": {
+        "path": "./plugins/dsail",
+        "source": "local"
+      }
+    }
+  ]
+}
