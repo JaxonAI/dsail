@@ -2,7 +2,7 @@
   The DSAIL review UI (TJP-636). NOT a document: a fragment, fetched over
   the connector by widget-shell.html and injected into it, so a deployed
   change to this file reaches every connected user on their next
-  conversation with no disconnect/reconnect. `119e4a3ef3` is substituted
+  conversation with no disconnect/reconnect. `9c727f7d19` is substituted
   by agent_api.widget with this file's own content hash.
 
   Three tools render here, each recognised by the shape of its own payload
@@ -88,6 +88,9 @@
   /* Shown only when this host cannot run tools from the frame: every control
      below then hands its request to the conversation instead. */
   .badge.relay { background: var(--caution-bg); color: var(--caution); }
+  /* The environment name beside the build, shown on every deployment but
+     production (TJP-624). Monospace because half of it is a build hash. */
+  .badge.env { background: var(--caution-bg); color: var(--caution); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 500; }
   .relay-note { display: none; color: var(--fg); font-size: 12.5px; margin-top: 8px; padding: 8px 10px;
                 background: var(--caution-bg); border-radius: 6px; }
   .relay-note.on { display: block; }
@@ -263,7 +266,11 @@
 <div id="library" style="display:none">
   <div class="hdr">
     <h1>Ruleset library</h1>
-    <span id="lib-count" class="badge pending"></span>
+    <span class="left">
+      <span id="lib-env-badge" class="badge env" style="display:none"
+            title="This is not the production deployment. Environment name and widget build."></span>
+      <span id="lib-count" class="badge pending"></span>
+    </span>
   </div>
   <div class="panel">
     <p id="lib-status"></p>
@@ -283,7 +290,7 @@
      because widget-shell.html reads it out of these bytes to name the build in
      its failure panel, which is the one place a human needs it — when the UI
      did not load and there is no payload to read. -->
-<div id="app" style="display:none" data-ui-build="119e4a3ef3">
+<div id="app" style="display:none" data-ui-build="9c727f7d19">
   <div class="hdr">
     <div class="left">
       <button class="btn back" id="back-to-library" style="display:none">&larr; Library</button>
@@ -291,6 +298,8 @@
       <button class="hash" id="rs-hash" title="Copy the full hash">&hellip;</button>
     </div>
     <span class="left">
+      <span id="env-badge" class="badge env" style="display:none"
+            title="This is not the production deployment. Environment name and widget build."></span>
       <span id="relay-badge" class="badge relay" style="display:none"
             title="This chat client does not run tools from inside the widget. Each action here is handed to the conversation and the assistant performs it.">via conversation</span>
       <span id="approved-badge" class="badge pending">Not approved</span>
@@ -667,6 +676,18 @@
       b.textContent = approvals.length + " approvals";
     }
     renderBridgeState();
+  }
+
+  function renderEnvironment() {
+    const text = state.environment
+      ? state.environment + (state.build ? " · " + state.build : "")
+      : "";
+    for (const id of ["env-badge", "lib-env-badge"]) {
+      const badge = $(id);
+      if (!badge) continue;
+      badge.textContent = text;
+      badge.style.display = text ? "" : "none";
+    }
   }
 
   function renderApproveTarget() {
@@ -1198,6 +1219,15 @@
     // handshake finished populating capabilities.
     if (payload && payload.widget && typeof payload.widget.direct_calls === "boolean") {
       host.directAllowed = payload.widget.direct_calls;
+    }
+    // TJP-624. `widget.environment` is present only off production; the
+    // header then names the environment beside the build identifier so a
+    // staged widget cannot pass for the production one. On production the
+    // field is absent and nothing is shown.
+    if (payload && payload.widget) {
+      state.environment = typeof payload.widget.environment === "string" ? payload.widget.environment : null;
+      state.build = typeof payload.widget.build === "string" ? payload.widget.build : null;
+      renderEnvironment();
     }
     readHost();
     applyHostContext(host.ctx);

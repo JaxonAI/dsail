@@ -56,13 +56,30 @@ class ToolListTests(unittest.TestCase):
     def test_tool_list_equals_the_bundle(self):
         async def action(session):
             listed = await session.list_tools()
+            # The whole definition, the way the bundle records it: title,
+            # annotations (wire spelling) and output schema included (TJP-624).
             return [
-                {"name": t.name, "description": t.description, "inputSchema": t.input_schema}
+                {
+                    "name": t.name,
+                    "title": t.title,
+                    "description": t.description,
+                    "inputSchema": t.input_schema,
+                    "outputSchema": t.output_schema,
+                    "annotations": t.annotations.model_dump(mode="json", by_alias=True, exclude_none=True)
+                    if t.annotations is not None else None,
+                }
                 for t in listed.tools
             ], session.instructions
 
         listed, instructions = _run("http://127.0.0.1:%d" % _closed_port(), action)
         self.assertEqual(listed[:-1], contract.tools()["tools"])
+        for definition in listed[:-1]:
+            with self.subTest(tool=definition["name"]):
+                self.assertTrue(definition["title"])
+                self.assertIn("readOnlyHint", definition["annotations"])
+                self.assertEqual("object", definition["outputSchema"]["type"])
+                for name, spec in definition["inputSchema"].get("properties", {}).items():
+                    self.assertTrue(spec.get("description"), "%s has no description" % name)
         self.assertEqual(listed[-1]["name"], tools.OPEN_REVIEW_TOOL)
         self.assertTrue(instructions.startswith(contract.instructions()))
         self.assertIn("dsail_open_review", instructions)

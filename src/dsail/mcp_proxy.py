@@ -83,14 +83,22 @@ def build_server(client, review_server=None):
 
     bundle = contract.tools()
     review_server = review_server or serve.ReviewServer(client)
-    definitions = [
-        types.Tool(
+
+    def _definition(item):
+        # The bundled definition verbatim: title, annotations and output schema
+        # ride along when the bundle carries them, so this proxy publishes what
+        # the hosted door publishes (TJP-624). Absent fields stay absent.
+        annotations = item.get("annotations")
+        return types.Tool(
             name=item["name"],
+            title=item.get("title"),
             description=item["description"],
             inputSchema=item["inputSchema"],
+            outputSchema=item.get("outputSchema"),
+            annotations=types.ToolAnnotations(**annotations) if annotations else None,
         )
-        for item in tools.proxy_definitions()
-    ]
+
+    definitions = [_definition(item) for item in tools.proxy_definitions()]
 
     async def on_list_tools(_context, _params):
         return types.ListToolsResult(tools=definitions)
