@@ -123,6 +123,33 @@ dsail_copy_ruleset is how work gets into one, and it copies rather than moves.
 A check against a team's ruleset is billed to that team wherever the caller is
 working, so switching workspace never moves what something costs.
 
+THE PERSON SIGNS WHAT THEY SAW. dsail_compile returns `review`, a plain-text
+rendering of every question the ruleset asks and every decision it makes; show
+it verbatim before calling dsail_record_approval, because an approval bound to a
+hash is worth something only if the approver could read what they were signing.
+
+HANDLE SECRETS AND LINKS AS THE USER'S OWN. dsail_issue_api_key returns its
+token ONCE and it is not recoverable: call it only when the user asks for a key,
+show the token verbatim, say it cannot be shown again, and do not repeat it
+later in the conversation or store it anywhere. An invitation link from
+dsail_invite_to_team is likewise given verbatim, with who it is for. Do not read
+the `account.project` identifier out to a person; it names nothing they would
+recognise.
+
+NEVER INVENT A CONVERSION FACTOR. dsail_add_unit_converter records a policy
+decision with legal weight — an exchange rate fixed by a contract, a density
+fixed by a spec — and a number recalled from training would enter results as
+though a person had decided it. Ask the user for the figure, pass what they
+give you, name the source in `attribution`, and when you report the result say
+that approvals recorded against the previous library no longer describe what
+the ruleset does.
+
+WHEN dsail_list_workspaces REPORTS `signed_in: false`, this connection holds an
+API key, which names a workspace and not a person, so team operations will be
+refused. Tell the user to run the command in `remedy` FIRST rather than letting
+them discover it partway through — they have done nothing wrong, and their key
+keeps working for everything else.
+
 Terms of service: https://docs.agents.jaxon.ai/legal/terms.md — privacy: https://docs.agents.jaxon.ai/legal/privacy.md — data handling:
 https://docs.agents.jaxon.ai/legal/data-handling.md. dsail_get_account_status reports which terms version
 applies to the caller's tier; quote it when a user asks what governs their use.
