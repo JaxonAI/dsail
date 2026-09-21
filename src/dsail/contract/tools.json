@@ -585,9 +585,9 @@
     {
       "annotations": {
         "destructiveHint": false,
-        "idempotentHint": true,
+        "idempotentHint": false,
         "openWorldHint": false,
-        "readOnlyHint": true
+        "readOnlyHint": false
       },
       "description": "Check extracted values against a written policy and get the same answer every time, with the rule that decided, with a counterexample when one is violated.\n\nUse when reviewers disagree about applying decided rules to the same facts, or\nrepeated reviews give inconsistent answers. Takes the ruleset and claim values\nextracted by the caller's own model.\n\nValidates a claim dictionary and solves it against a ruleset, in one call.\n\nTakes `ruleset_hash` (a compiled ruleset's content hash) or `source`. `claims`\nmaps every declared claim name to a value; a claim that could not be\ndetermined is the string \"unknown\", which the rules treat as a first-class\nanswer rather than a guess.\n\nReturns every rule with the assertions it states, each carrying the engine's\nown result — TRUE (it holds), FALSE (it is violated), UNKNOWN (a claim it needs\nwas not determined) or AMBIGUOUS (its evidence was contradicted) — plus the\nsolver's counterexample on a FALSE, and which claims had no value. A rejected\ndictionary names every failing field at once as {field, expected, received}.\n\nThere is no overall verdict, by design: the four per-assertion words are the\nwhole answer, and what a FALSE costs is a decision for whoever reads it.\n\nThis is the one metered call, priced in Jaxon Verified Units: one rule checked\nagainst up to 1,000 characters is one JVU, so a call carrying more rules or more\ntext costs more than one. An exhausted allowance answers ENTITLEMENT_EXCEEDED\nwith a message and a personalised `upgrade_url`; upgrading resumes the same\nconversation, and everything except checking keeps working meanwhile.",
       "inputSchema": {
@@ -1035,7 +1035,7 @@
         "destructiveHint": false,
         "idempotentHint": true,
         "openWorldHint": false,
-        "readOnlyHint": true
+        "readOnlyHint": false
       },
       "description": "Get the exact questions to ask a document so the answers can be checked against a written policy.\n\nUse when reviewers pull different facts from the same kind of document, or the\ncaller needs a consistent set of questions before applying decided rules.\n\nReturns the extraction contract for a compiled ruleset: one prompt per claim\n(question, answer format, vocabulary, unit), the claim JSON schema, and the\nexact validation rules a check enforces. The prompts are for the caller's own\nmodel to run; this service calls no model. The assembled claim dictionary is\nwhat a check takes.",
       "inputSchema": {
@@ -3724,7 +3724,7 @@
     },
     {
       "annotations": {
-        "destructiveHint": false,
+        "destructiveHint": true,
         "idempotentHint": true,
         "openWorldHint": false,
         "readOnlyHint": false
@@ -5184,7 +5184,7 @@
     },
     {
       "annotations": {
-        "destructiveHint": false,
+        "destructiveHint": true,
         "idempotentHint": true,
         "openWorldHint": false,
         "readOnlyHint": false
