@@ -8,7 +8,7 @@
       "category": "Developer Tools",
       "name": "dsail",
       "policy": {
-        "authentication": "ON_FIRST_USE",
+        "authentication": "ON_USE",
         "installation": "AVAILABLE"
       },
       "source": {

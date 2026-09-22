@@ -433,7 +433,10 @@ def marketplace_json(plugin_relative_path):
             {
                 "name": PLUGIN_NAME,
                 "source": {"source": "local", "path": plugin_relative_path},
-                "policy": {"installation": "AVAILABLE", "authentication": "ON_FIRST_USE"},
+                # Codex's marketplace schema accepts exactly ON_INSTALL or
+                # ON_USE here; `codex plugin marketplace add` refused the
+                # bundle with any other spelling (measured 2026-09-21).
+                "policy": {"installation": "AVAILABLE", "authentication": "ON_USE"},
                 "category": "Developer Tools",
             }
         ],
