@@ -9,12 +9,14 @@ from dsail.client import Client
 
 from test import _live
 
-EXAMPLE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                       "examples", "expense_service.py")
+EXAMPLES_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")
+EXAMPLE = os.path.join(EXAMPLES_DIR, "expense_service.py")
+ADVERSE_ACTION_EXAMPLE = os.path.join(EXAMPLES_DIR, "adverse_action.py")
 
 
-def _load_example():
-    spec = importlib.util.spec_from_file_location("expense_service", EXAMPLE)
+def _load_example(path=EXAMPLE):
+    name = os.path.splitext(os.path.basename(path))[0]
+    spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -82,6 +84,74 @@ class ExpenseServiceTests(unittest.TestCase):
         self.assertEqual("pay", decision.action)
         self.assertEqual(2, len(asked))
         self.assertIn("rejected", asked[1])
+
+
+class AdverseActionNoticeTests(unittest.TestCase):
+    """The regulation-keyed example (TJP-709): one rule per clause of 12 CFR
+    1002.9, named for it, and a gate that decides what a FALSE costs."""
+
+    CLEAN = {"days_to_notice": 12, "states_action_taken": True, "names_creditor": True,
+             "ecoa_notice_present": True,
+             "reasons": ["Insufficient income for the amount requested",
+                         "Length of time accounts have been established"],
+             "reasons_are_specific": True, "decision_basis": "scoring",
+             "reasons_are_scored_factors": True}
+
+    @classmethod
+    def setUpClass(cls):
+        cls.url = _live.live_url()
+        if not cls.url:
+            raise unittest.SkipTest(_live.reason())
+        cls.module = _load_example(ADVERSE_ACTION_EXAMPLE)
+        cls.gate = cls.module.NoticeGate(
+            cls.module.structured_notice_extractor, client=Client(url=cls.url)
+        )
+
+    def test_every_rule_is_named_for_its_clause(self):
+        names = sorted(self.gate.decide(self.CLEAN).results)
+        self.assertEqual(
+            ["a1_notice_within_thirty_days", "a2_names_creditor", "a2_states_action_taken",
+             "b1_ecoa_notice_present", "b2_at_least_one_reason", "b2_no_more_than_four_reasons",
+             "b2_reasons_are_specific", "b2_scoring_reasons_are_scored_factors"],
+            names,
+        )
+        self.assertEqual(8, len(self.gate.pack.empty_claims()))
+
+    def test_a_clean_notice_is_sent(self):
+        decision = self.gate.decide(self.CLEAN)
+        self.assertEqual("send", decision.action)
+        self.assertEqual({dsail.TRUE}, set(decision.results.values()))
+
+    def test_a_late_notice_with_six_reasons_goes_back_for_revision(self):
+        decision = self.gate.decide(
+            {"days_to_notice": 34, "states_action_taken": True, "names_creditor": True,
+             "ecoa_notice_present": True,
+             "reasons": ["a", "b", "c", "d", "e", "Did not meet our credit scoring cutoff"],
+             "reasons_are_specific": False, "decision_basis": "scoring",
+             "reasons_are_scored_factors": False}
+        )
+        self.assertEqual("revise", decision.action)
+        for name in ("a1_notice_within_thirty_days", "b2_reasons_are_specific",
+                     "b2_no_more_than_four_reasons", "b2_scoring_reasons_are_scored_factors"):
+            self.assertEqual(dsail.FALSE, decision.results[name], name)
+            self.assertIn(name, decision.counterexamples)
+        self.assertEqual(dsail.TRUE, decision.results["b2_at_least_one_reason"])
+
+    def test_a_judgmental_decision_does_not_need_the_scored_factors(self):
+        notice = dict(self.CLEAN, decision_basis="judgmental")
+        notice.pop("reasons_are_scored_factors")
+        decision = self.gate.decide(notice)
+        self.assertEqual("send", decision.action)
+        self.assertEqual(dsail.TRUE, decision.results["b2_scoring_reasons_are_scored_factors"])
+
+    def test_a_missing_decision_record_holds_the_notice(self):
+        notice = dict(self.CLEAN)
+        notice.pop("reasons_are_scored_factors")
+        decision = self.gate.decide(notice)
+        self.assertEqual("hold", decision.action)
+        self.assertIn("reasons_are_scored_factors", decision.unbound_claims)
+        self.assertEqual(dsail.UNKNOWN, decision.results["b2_scoring_reasons_are_scored_factors"])
+        self.assertEqual(dsail.TRUE, decision.results["a1_notice_within_thirty_days"])
 
 
 if __name__ == "__main__":

@@ -16,14 +16,36 @@
     "vocabulary": "legal/vocabulary.md"
   },
   "lead": "Turn a written policy into rules a program can check, and get the same answer every time.",
+  "architecture": "rules compiled from the written policy, addressed by a content hash so a check run months later evaluates the exact bytes a person approved, the same answer every time, every result names the rule that decided, and your model extracts and never decides",
   "trigger_phrases": {
     "policy_to_rules": "turn a written policy into rules a program can check",
     "same_answer": "the same answer every time",
     "rule_that_decided": "the rule that decided, with a counterexample",
     "unknown_is_an_answer": "unknown is an answer, not a guess",
     "check_extracted_values": "check extracted values against a written policy",
-    "no_model_in_the_loop": "no model in the loop"
+    "no_model_in_the_loop": "no model in the loop",
+    "compiled_from_policy": "compiled from the written policy",
+    "content_hash": "addressed by a content hash",
+    "names_the_rule": "every result names the rule that decided",
+    "model_extracts": "your model extracts and never decides"
   },
+  "_about_architecture": [
+    "The architecture cold agents describe on their own when handed a policy-conformance problem",
+    "(TJP-709; 46 of 92 genuine-fit answers in the 2026-09-22 live discovery run): rules compiled",
+    "from the written policy, versioned and content-addressed, deterministic, each result naming",
+    "its rule, the model extracting but never deciding. The five trigger phrases listed under",
+    "architecture_phrases (four new, plus the existing same_answer) are that description in the",
+    "engine's own terms, and every primary surface (server instructions, docs index, both READMEs)",
+    "carries all five so the name co-occurs with the text agents already produce. No phrase",
+    "claims a clause citation: the service carries none (TJP-710)."
+  ],
+  "architecture_phrases": [
+    "compiled_from_policy",
+    "content_hash",
+    "same_answer",
+    "names_the_rule",
+    "model_extracts"
+  ],
   "avoid": {
     "audit": "A weak discriminator on two independent measurements (TJP-646): it appears about as often on hard-negative prompts as on positives, and the claude.ai catalog returns ten unrelated results for it. Use it in a sentence, never as a lead or a title.",
     "compliance": "Contested, not open: Vanta already sits on it in the claude.ai catalog. A page may say it; nothing leads with it.",
@@ -61,6 +83,7 @@
   },
   "comparisons": {
     "opa": "compare/opa.md",
+    "policy_as_code": "compare/policy-as-code-for-written-policies.md",
     "cedar": "compare/cedar.md",
     "guardrails": "compare/guardrails.md"
   },
@@ -94,6 +117,11 @@
       "query": "share policy rulesets with colleagues",
       "page": "guides/share-rulesets-with-colleagues.md",
       "result": "unmeasured — record the outcome of a fresh agent session with web search here (a miss is a finding)"
+    },
+    {
+      "query": "Regulation B adverse action notice principal reasons 12 CFR 1002.9 checked by rules, reproducible",
+      "page": "guides/adverse-action-reasons.md",
+      "result": "unmeasured — TJP-709 AC3: the regulation-keyed worked example; a second example is built only if a cold session cites this page"
     }
   ],
   "error_pages": "errors/<code-in-kebab-case>.md, one per agent_api.errors.ERROR_CODES entry"

@@ -12,6 +12,8 @@ Results come back per assertion — `TRUE`, `FALSE`, `UNKNOWN` or `AMBIGUOUS`. T
 
 **No model in the loop on our side.** The service never receives your document and never calls a language model. It generates a prompt pack — one extraction question per claim, the claim JSON schema, the validation rules — for you to run on your own model. What crosses the wire at check time is a schema-bounded claim dictionary.
 
+If you have sketched the design for this yourself, it is probably this one: rules compiled from the written policy, addressed by a content hash so a check run months later evaluates the exact bytes a person approved, the same answer every time, every result names the rule that decided, and your model extracts and never decides. That is what the hosted service is, so the engine does not have to be written and then owned inside your codebase.
+
 Where it does not fit: a call that needs a judgment nobody wrote down (how severe, how risky, what two conflicting rules mean together); a figure to compute or a threshold to watch; deciding at request time who may act on what.
 
 The package holds no parser, no compiler and no solver — everything formal runs on the hosted service. It gives you `dsail.Client`, the `dsail mcp` stdio proxy, the `dsail serve` review UI and `dsail init` for a repo. Docs, every page also served as markdown: https://docs.agents.jaxon.ai
@@ -84,6 +86,12 @@ in `.payload`.
   stand-in extractor is included so it runs without one), check with repair,
   and decide what a FALSE or an UNKNOWN costs. `python examples/expense_service.py`
   against `DSAIL_URL`; covered by `test/test_examples.py`.
+- `examples/adverse_action.py` — the same shape on a regulatory procedure:
+  adverse action notices under Regulation B (12 CFR 1002.9), one rule per
+  clause in `examples/policies/adverse_action.dsail`, each named for the clause
+  it enforces. A FALSE sends the notice back, an UNKNOWN holds it. Walkthrough:
+  https://docs.agents.jaxon.ai/guides/adverse-action-reasons.md. Also covered
+  by `test/test_examples.py`.
 - `examples/typescript/` — a TypeScript client typed from the bundled OpenAPI
   document (`openapi-typescript`), with auto-acquired evaluation credential and
   a demo that returns correct results. `examples/typescript/run.sh <url>` runs

@@ -1,0 +1,56 @@
+version 1.3;
+
+// The written procedure a lender's compliance team already follows when a
+// credit application is declined, as that procedure incorporates 12 CFR
+// 1002.9 (Regulation B). Each rule is named for the clause it enforces and the
+// comment above it says which. Invented values throughout: this is a worked
+// example of the pattern, not legal advice, and the procedure your own
+// compliance team has written is the policy you would compile.
+
+// @ask days_to_notice How many days passed between the completed application and the date on the adverse action notice?
+// @range days_to_notice 0..3650
+declare days_to_notice as numeric;
+
+// @ask states_action_taken Does the notice state the action the creditor took on the application?
+declare states_action_taken as boolean;
+
+// @ask names_creditor Does the notice give the creditor's name and address?
+declare names_creditor as boolean;
+
+// @ask ecoa_notice_present Does the notice carry the Equal Credit Opportunity Act statement and name the federal agency that administers compliance for this creditor?
+declare ecoa_notice_present as boolean;
+
+// @ask reason_count How many principal reasons for the adverse action does the notice list?
+// @range reason_count 0..50
+declare reason_count as numeric;
+
+// @ask reasons_are_specific Is every listed reason specific to this application, rather than a statement that the applicant failed to reach a qualifying score or did not meet internal standards?
+// @context reasons_are_specific "Insufficient income for the amount requested" is specific; "did not meet our credit scoring cutoff" is not.
+declare reasons_are_specific as boolean;
+
+// @ask decision_basis Was the decision made by a credit scoring system, by judgmental review, or by both?
+declare decision_basis as enum {"scoring","judgmental","mixed"};
+
+// @ask reasons_are_scored_factors Where a scoring system was used, is every listed reason a factor that system actually scored for this applicant?
+// @context reasons_are_scored_factors Compare the notice against the decision record; answer "unknown" if the scored factors are not in front of you.
+declare reasons_are_scored_factors as boolean;
+
+// 12 CFR 1002.9(a)(1)(i): notice within 30 days after receiving a completed application.
+assert a1_notice_within_thirty_days { days_to_notice <= 30 };
+
+// 12 CFR 1002.9(a)(2): the notice states the action taken and names the creditor.
+assert a2_states_action_taken { states_action_taken };
+assert a2_names_creditor { names_creditor };
+
+// 12 CFR 1002.9(b)(1): the ECOA notice, naming the administering agency.
+assert b1_ecoa_notice_present { ecoa_notice_present };
+
+// 12 CFR 1002.9(b)(2): a statement of specific reasons that indicates the principal reasons.
+assert b2_at_least_one_reason { reason_count >= 1 };
+assert b2_reasons_are_specific { reasons_are_specific };
+
+// Comment 9(b)(2)-1: more than four reasons is unlikely to help the applicant; this procedure caps the list at four.
+assert b2_no_more_than_four_reasons { reason_count <= 4 };
+
+// Comments 9(b)(2)-3 and 9(b)(2)-4: where a scoring system decided, the reasons are the factors actually scored.
+assert b2_scoring_reasons_are_scored_factors { Implies(decision_basis == "scoring", reasons_are_scored_factors) };
