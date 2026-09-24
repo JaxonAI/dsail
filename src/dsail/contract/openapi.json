@@ -674,6 +674,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -686,6 +687,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -765,6 +767,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -833,6 +839,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -845,6 +852,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -924,6 +932,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -992,6 +1004,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -1004,6 +1017,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -1083,6 +1097,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -1403,6 +1421,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -1415,6 +1434,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -1494,6 +1514,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -1562,6 +1586,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -1574,6 +1599,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -1653,6 +1679,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -1721,6 +1751,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -1733,6 +1764,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -1812,6 +1844,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -1880,6 +1916,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -1892,6 +1929,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -1971,6 +2009,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -2039,6 +2081,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -2051,6 +2094,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -2130,6 +2174,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -2189,6 +2237,171 @@
               }
             },
             "description": "The engine and the manifest disagree about which assertions this ruleset states, so no results are offered. Deliberately not a partial answer."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "ENGINE_BUSY: the solver was busy with other requests for longer than a call may wait. Nothing was charged; retry after `retry_after_ms` (also sent as Retry-After)."
           }
         },
         "summary": "Validate a claim dictionary and solve it, in one call",
@@ -2597,6 +2810,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -2609,6 +2823,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -2688,6 +2903,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -2756,6 +2975,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -2768,6 +2988,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -2847,6 +3068,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -2915,6 +3140,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -2927,6 +3153,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -3006,6 +3233,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -3065,6 +3296,171 @@
               }
             },
             "description": "The source did not compile. The error carries diagnostics and the grammar as a hint."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "ENGINE_BUSY: the solver was busy with other requests for longer than a call may wait. Nothing was charged; retry after `retry_after_ms` (also sent as Retry-After)."
           }
         },
         "summary": "Compile a ruleset; get its hash, manifest and validation contract",
@@ -3252,6 +3648,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -3264,6 +3661,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -3343,6 +3741,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -3411,6 +3813,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -3423,6 +3826,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -3502,6 +3906,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -3741,6 +4149,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -3753,6 +4162,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -3832,6 +4242,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -3900,6 +4314,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -3912,6 +4327,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -3991,6 +4407,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -4059,6 +4479,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -4071,6 +4492,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -4150,6 +4572,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -4218,6 +4644,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -4230,6 +4657,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -4309,6 +4737,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -4530,6 +4962,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -4542,6 +4975,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -4621,6 +5055,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -4689,6 +5127,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -4701,6 +5140,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -4780,6 +5220,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -4848,6 +5292,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -4860,6 +5305,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -4939,6 +5385,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -5164,6 +5614,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -5176,6 +5627,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -5255,6 +5707,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -5323,6 +5779,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -5335,6 +5792,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -5414,6 +5872,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -5482,6 +5944,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -5494,6 +5957,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -5573,6 +6037,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -5641,6 +6109,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -5653,6 +6122,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -5732,6 +6202,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -6245,6 +6719,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -6257,6 +6732,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -6336,6 +6812,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -6404,6 +6884,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -6416,6 +6897,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -6495,6 +6977,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -6563,6 +7049,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -6575,6 +7062,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -6654,6 +7142,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -7007,6 +7499,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -7019,6 +7512,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -7098,6 +7592,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -7195,6 +7693,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -7207,6 +7706,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -7286,6 +7786,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -7354,6 +7858,7 @@
                     "error": {
                       "properties": {
                         "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
                           "type": "integer"
                         },
                         "budget": {
@@ -7366,6 +7871,7 @@
                             "BUDGET_EXCEEDED",
                             "RULESET_NOT_FOUND",
                             "ENGINE_ERROR",
+                            "ENGINE_BUSY",
                             "BAD_REQUEST",
                             "CREDENTIAL_REQUIRED",
                             "CREDENTIAL_INVALID",
@@ -7445,6 +7951,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
                         }
                       },
                       "required": [
