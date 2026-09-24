@@ -85,13 +85,13 @@ export class DsailClient {
   }
 
   /** Every assertion across every rule, flattened, in the engine's own words. */
-  static assertions(result: CheckResponse): Array<{ rule: string; name: string; check: Check; counterexample?: string }> {
+  static assertions(result: CheckResponse): Array<{ rule: string; name: string; check: Check; source?: string | null }> {
     return result.rules.flatMap((rule) =>
       rule.assertions.map((a) => ({
         rule: rule.rule,
         name: a.name,
         check: a.check as Check,
-        counterexample: a.counterexample,
+        source: a.source,
       })),
     );
   }

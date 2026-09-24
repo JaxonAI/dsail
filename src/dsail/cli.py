@@ -102,10 +102,7 @@ def cmd_check(args):
         result = client.check(claims, ruleset_hash=args.hash)
     if args.summary:
         for assertion in result.assertions:
-            line = "%-10s %s" % (assertion.check, assertion.name)
-            if assertion.counterexample:
-                line += "   counterexample: %s" % assertion.counterexample
-            sys.stdout.write(line + "\n")
+            sys.stdout.write("%-10s %s\n" % (assertion.check, assertion.name))
         if result.unbound_claims:
             sys.stdout.write("unbound: %s\n" % ", ".join(result.unbound_claims))
     else:

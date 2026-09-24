@@ -11,7 +11,7 @@ CHECK = {
     "unit_library_hash": None,
     "rules": [
         {"rule": "within_cap", "assertions": [{"name": "within_cap", "check": "FALSE",
-                                               "counterexample": "amount = 6000"}]},
+                                               "source": "assert within_cap { amount <= 5000 }"}]},
         {"rule": "needs_receipt", "assertions": [{"name": "needs_receipt", "check": "UNKNOWN",
                                                   "reason_unknown": "has_receipt unbound"}]},
         {"rule": "ok_rule", "assertions": [{"name": "ok_rule", "check": "TRUE"}]},
@@ -35,7 +35,8 @@ class CheckResultTests(unittest.TestCase):
     def test_where_and_by_name(self):
         result = CheckResult(CHECK)
         self.assertEqual([a.name for a in result.where(dsail.FALSE)], ["within_cap"])
-        self.assertEqual(result.by_name()["within_cap"].counterexample, "amount = 6000")
+        self.assertEqual(result.by_name()["within_cap"].source, "assert within_cap { amount <= 5000 }")
+        self.assertFalse(hasattr(result.by_name()["within_cap"], "counterexample"))
         self.assertTrue(result.by_name()["ok_rule"].holds)
         self.assertTrue(result.by_name()["within_cap"].violated)
 

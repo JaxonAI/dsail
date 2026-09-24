@@ -47,14 +47,14 @@ class ExpenseServiceTests(unittest.TestCase):
         self.assertEqual("pay", decision.action)
         self.assertEqual({dsail.TRUE}, set(decision.results.values()))
 
-    def test_a_violation_routes_to_review_with_the_counterexample(self):
+    def test_a_violation_routes_to_review_naming_the_rule_that_decided(self):
         decision = self.gate.decide(
             {"amount": 1899, "has_receipt": True, "category": "equipment", "manager_approved": False}
         )
         self.assertEqual("review", decision.action)
         self.assertEqual(dsail.FALSE, decision.results["equipment_needs_manager"])
         self.assertEqual(dsail.FALSE, decision.results["large_claims_need_manager"])
-        self.assertIn("large_claims_need_manager", decision.counterexamples)
+        self.assertIn("large_claims_need_manager", decision.violations)
         self.assertEqual(dsail.TRUE, decision.results["within_cap"])
 
     def test_missing_evidence_holds_rather_than_guesses(self):
@@ -134,7 +134,7 @@ class AdverseActionNoticeTests(unittest.TestCase):
         for name in ("a1_notice_within_thirty_days", "b2_reasons_are_specific",
                      "b2_no_more_than_four_reasons", "b2_scoring_reasons_are_scored_factors"):
             self.assertEqual(dsail.FALSE, decision.results[name], name)
-            self.assertIn(name, decision.counterexamples)
+            self.assertIn(name, decision.violations)
         self.assertEqual(dsail.TRUE, decision.results["b2_at_least_one_reason"])
 
     def test_a_judgmental_decision_does_not_need_the_scored_factors(self):

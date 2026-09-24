@@ -157,7 +157,7 @@ _PREAMBLE = (
     "DSAIL turns a written policy into a formal ruleset and returns deterministic, "
     "reproducible results over claim values you extract: given these claim values "
     "under this ruleset, every assertion answers TRUE, FALSE, UNKNOWN or AMBIGUOUS — "
-    "every time, with a counterexample when one is violated. Whether the claim "
+    "every time, and every result names the rule that decided. Whether the claim "
     "values faithfully describe the document is your extraction's responsibility. "
     "The service never calls a language model; you run extraction on the user's own "
     "model using the prompt pack it generates. Report results in those four words, "
@@ -392,8 +392,8 @@ def plugin_manifest(app_id=None):
             "longDescription": (
                 "%s A written policy becomes a formal ruleset; your model extracts the claim "
                 "values; the hosted service returns each assertion's own result — TRUE, FALSE, "
-                "UNKNOWN or AMBIGUOUS — with the rule that decided, with a counterexample when "
-                "one is violated. No model in the loop: the service never calls one."
+                "UNKNOWN or AMBIGUOUS — with the rule that decided. No model in the loop: the "
+                "service never calls one."
                 % phrasing["lead"]
             ),
             "developerName": "Jaxon, Inc.",

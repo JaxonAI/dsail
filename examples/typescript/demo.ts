@@ -26,7 +26,7 @@ try {
     claims: { amount: "1899 USD", has_receipt: true, category: "equipment", manager_approved: false },
   });
   for (const a of DsailClient.assertions(result)) {
-    console.log(`  ${a.check.padEnd(10)} ${a.name}${a.counterexample ? `   counterexample: ${a.counterexample}` : ""}`);
+    console.log(`  ${a.check.padEnd(10)} ${a.name}`);
   }
   const violated = DsailClient.assertions(result).filter((a) => a.check === "FALSE").map((a) => a.name);
   console.log(JSON.stringify({ ok: true, ruleset_hash: result.ruleset_hash, violated }));

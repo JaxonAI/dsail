@@ -42,7 +42,7 @@ class Decision:
 
     ruleset_hash: str
     results: Dict[str, str]
-    counterexamples: Dict[str, str]
+    violations: Dict[str, Optional[str]]  # FALSE assertion name -> its source text
     unbound_claims: List[str]
     action: str  # "pay" | "review" | "hold"
     reasons: List[str] = field(default_factory=list)
@@ -93,7 +93,7 @@ class ExpenseGate:
             claims, self._repair(document), ruleset_hash=self.compiled.ruleset_hash
         )
         results = {a.name: a.check for a in result.assertions}
-        counterexamples = {a.name: a.counterexample for a in result.assertions if a.counterexample}
+        violations = {a.name: a.source for a in result.assertions if a.violated}
 
         # This is the policy of THIS service, not of the engine: the engine
         # reported per-assertion conclusions and stopped.
@@ -110,7 +110,7 @@ class ExpenseGate:
         return Decision(
             ruleset_hash=result.ruleset_hash,
             results=results,
-            counterexamples=counterexamples,
+            violations=violations,
             unbound_claims=result.unbound_claims,
             action=action,
             reasons=reasons,

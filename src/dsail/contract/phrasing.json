@@ -20,7 +20,7 @@
   "trigger_phrases": {
     "policy_to_rules": "turn a written policy into rules a program can check",
     "same_answer": "the same answer every time",
-    "rule_that_decided": "the rule that decided, with a counterexample",
+    "rule_that_decided": "the rule that decided",
     "unknown_is_an_answer": "unknown is an answer, not a guess",
     "check_extracted_values": "check extracted values against a written policy",
     "no_model_in_the_loop": "no model in the loop",
@@ -54,7 +54,7 @@
   },
   "tools": {
     "dsail_compile": "Turn a written policy into rules a program can check.",
-    "dsail_check": "Check extracted values against a written policy and get the same answer every time, with the rule that decided, with a counterexample when one is violated.",
+    "dsail_check": "Check extracted values against a written policy and get the same answer every time, with the rule that decided.",
     "dsail_get_prompt_pack": "Get the exact questions to ask a document so the answers can be checked against a written policy.",
     "dsail_save_ruleset": "Keep a written policy's rules as a named, immutable revision, so a later check answers exactly as this one did.",
     "dsail_load_ruleset": "Show a saved policy ruleset exactly as it was stored.",
@@ -99,7 +99,7 @@
       "result": "unmeasured"
     },
     {
-      "query": "explain a policy decision with the rule that decided and a counterexample",
+      "query": "explain a policy decision with the rule that decided",
       "page": "guides/which-rule-decided.md",
       "result": "unmeasured"
     },

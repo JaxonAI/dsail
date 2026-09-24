@@ -82,7 +82,10 @@ class LiveClientTests(unittest.TestCase):
         result = self.client.check(claims, ruleset_hash=compiled.ruleset_hash)
         by_name = result.by_name()
         self.assertEqual(by_name["within_cap"].check, dsail.FALSE)
-        self.assertIsNotNone(by_name["within_cap"].counterexample)
+        self.assertIsNotNone(by_name["within_cap"].source)
+        for rule in result.payload["rules"]:
+            for entry in rule["assertions"]:
+                self.assertNotIn("counterexample", entry)
         self.assertEqual(by_name["receipt_over_75"].check, dsail.TRUE)
         self.assertEqual(by_name["equipment_needs_receipt"].check, dsail.TRUE)
         for assertion in result.assertions:

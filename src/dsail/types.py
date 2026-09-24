@@ -54,7 +54,6 @@ class AssertionResult:
     rule: str
     name: str
     check: str
-    counterexample: Optional[str] = None
     reason_unknown: Optional[str] = None
     unbridged_units: List[Dict[str, str]] = field(default_factory=list)
     source: Optional[str] = None
@@ -114,7 +113,6 @@ class CheckResult(_Wrapped):
                     rule=rule.get("rule", ""),
                     name=item.get("name", ""),
                     check=item.get("check", UNKNOWN),
-                    counterexample=item.get("counterexample"),
                     reason_unknown=item.get("reason_unknown"),
                     unbridged_units=list(item.get("unbridged_units") or []),
                     source=item.get("source"),

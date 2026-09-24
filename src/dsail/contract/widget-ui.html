@@ -2,7 +2,7 @@
   The DSAIL review UI (TJP-636). NOT a document: a fragment, fetched over
   the connector by widget-shell.html and injected into it, so a deployed
   change to this file reaches every connected user on their next
-  conversation with no disconnect/reconnect. `9c727f7d19` is substituted
+  conversation with no disconnect/reconnect. `13a6a371f0` is substituted
   by agent_api.widget with this file's own content hash.
 
   Three tools render here, each recognised by the shape of its own payload
@@ -233,7 +233,6 @@
   .rules-out .rule-out:first-child { border-top: 0; }
   .rules-out .rr-top { display: flex; justify-content: space-between; gap: 8px; }
   .rules-out .rr-src { color: var(--muted); margin-top: 3px; }
-  .rules-out .rr-ce { margin-top: 3px; color: var(--muted); }
   /* The only status words this widget renders are the engine's own four. */
   .st { font-weight: 700; }
   .st.TRUE { color: var(--good); }
@@ -290,7 +289,7 @@
      because widget-shell.html reads it out of these bytes to name the build in
      its failure panel, which is the one place a human needs it — when the UI
      did not load and there is no payload to read. -->
-<div id="app" style="display:none" data-ui-build="9c727f7d19">
+<div id="app" style="display:none" data-ui-build="13a6a371f0">
   <div class="hdr">
     <div class="left">
       <button class="btn back" id="back-to-library" style="display:none">&larr; Library</button>
@@ -979,7 +978,6 @@
       const check = a.check || "UNKNOWN";
       let extra = "";
       if (a.source) extra += '<div class="rr-src">' + esc(a.source) + "</div>";
-      if (a.counterexample) extra += '<div class="rr-ce">counterexample: ' + esc(a.counterexample) + "</div>";
       return '<div class="rule-out"><div class="rr-top"><code>' + esc(a.name) +
         '</code><span class="st ' + esc(check) + '">' + esc(check) + "</span></div>" + extra + "</div>";
     }).join("") + "</div>";

@@ -8,7 +8,7 @@ Some rules are already settled on paper: which clauses a subcontract must carry,
 
 DSAIL is for exactly that. Turn a written policy into rules a program can check, and get the same answer every time. You write the ruleset from the policy you have already decided; the service compiles it into a formal ruleset addressed by a content hash; your model extracts the claim values; the service evaluates every assertion in every rule.
 
-Results come back per assertion — `TRUE`, `FALSE`, `UNKNOWN` or `AMBIGUOUS`. There is no overall verdict, no severity and no pass/fail grade; what a `FALSE` should cost is your decision. A `FALSE` carries the solver's counterexample, so you can show the rule that decided, with a counterexample. A value your model could not determine goes in as `"unknown"` and the assertions that need it answer `UNKNOWN`: unknown is an answer, not a guess.
+Results come back per assertion — `TRUE`, `FALSE`, `UNKNOWN` or `AMBIGUOUS`. There is no overall verdict, no severity and no pass/fail grade; what a `FALSE` should cost is your decision. Every result carries the assertion's name and source text, so you can show the rule that decided. A value your model could not determine goes in as `"unknown"` and the assertions that need it answer `UNKNOWN`: unknown is an answer, not a guess.
 
 **No model in the loop on our side.** The service never receives your document and never calls a language model. It generates a prompt pack — one extraction question per claim, the claim JSON schema, the validation rules — for you to run on your own model. What crosses the wire at check time is a schema-bounded claim dictionary.
 
@@ -69,7 +69,7 @@ def repair(current, failures):                           # the service names EVE
 
 result = client.check_with_repair(claims, repair, ruleset_hash=compiled.ruleset_hash)
 for assertion in result.assertions:
-    print(assertion.name, assertion.check, assertion.counterexample or "")
+    print(assertion.name, assertion.check, assertion.source)
 violated = result.where(dsail.FALSE)                     # your system decides what a FALSE costs
 ```
 

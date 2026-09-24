@@ -19,7 +19,7 @@
     ],
     "developerName": "Jaxon, Inc.",
     "displayName": "DSAIL",
-    "longDescription": "Turn a written policy into rules a program can check, and get the same answer every time. A written policy becomes a formal ruleset; your model extracts the claim values; the hosted service returns each assertion's own result \u2014 TRUE, FALSE, UNKNOWN or AMBIGUOUS \u2014 with the rule that decided, with a counterexample when one is violated. No model in the loop: the service never calls one.",
+    "longDescription": "Turn a written policy into rules a program can check, and get the same answer every time. A written policy becomes a formal ruleset; your model extracts the claim values; the hosted service returns each assertion's own result \u2014 TRUE, FALSE, UNKNOWN or AMBIGUOUS \u2014 with the rule that decided. No model in the loop: the service never calls one.",
     "privacyPolicyURL": "https://docs.agents.jaxon.ai/legal/privacy.md",
     "screenshots": [],
     "shortDescription": "Turn a written policy into rules a program can check, and get the same answer every time.",
