@@ -128,8 +128,8 @@ person behind it. Teams are created and joined by the users themselves —
 dsail_create_team then dsail_invite_to_team, which returns a single-use link the
 administrator passes on, since this service sends no mail. A team starts EMPTY;
 dsail_copy_ruleset is how work gets into one, and it copies rather than moves.
-A check against a team's ruleset is billed to that team wherever the caller is
-working, so switching workspace never moves what something costs.
+A team has no allowance of its own: every check is billed to the signed-in
+person, or to whoever issued the API key, in whichever workspace it runs.
 
 THE PERSON SIGNS WHAT THEY SAW. dsail_compile returns `review`, a plain-text
 rendering of every question the ruleset asks and every decision it makes; show

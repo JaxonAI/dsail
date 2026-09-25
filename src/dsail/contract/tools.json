@@ -4060,7 +4060,7 @@
         "openWorldHint": false,
         "readOnlyHint": true
       },
-      "description": "See which teams you work in and which one you are working in now.\n\nUse when a ruleset the user expects is missing from a listing, before saving something that belongs to a particular team, and whenever the user mentions a colleague, a team or sharing.\n\nEvery workspace this user may work in — their own, plus one per team — and which one is currently in use. The current workspace decides what a listing shows and where a save writes. It does NOT decide who pays: a check against a team's ruleset is billed to that team wherever the user happens to be working.\n\n`signed_in` says whether a person is behind this connection. When it is false the caller holds an API key, which names a workspace and not a person, so creating a team, inviting, removing and switching workspace are all refused; `remedy` is the command that signs the person in, and their key keeps working for everything else.",
+      "description": "See which teams you work in and which one you are working in now.\n\nUse when a ruleset the user expects is missing from a listing, before saving something that belongs to a particular team, and whenever the user mentions a colleague, a team or sharing.\n\nEvery workspace this user may work in — their own, plus one per team — and which one is currently in use. The current workspace decides what a listing shows and where a save writes. It does NOT decide who pays: every check is billed to the user's own account, in any workspace.\n\n`signed_in` says whether a person is behind this connection. When it is false the caller holds an API key, which names a workspace and not a person, so creating a team, inviting, removing and switching workspace are all refused; `remedy` is the command that signs the person in, and their key keeps working for everything else.",
       "inputSchema": {
         "properties": {},
         "title": "dsail_list_workspacesArguments",
@@ -4542,7 +4542,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Start a team so colleagues share one set of policy rules.\n\nUse when the user says a colleague cannot see their rulesets, or wants work shared with named people rather than kept to themselves.\n\nCreates a team with a ruleset library of its own and makes this user its administrator. The team starts EMPTY: their existing rulesets stay in their own workspace and are not moved or copied; copying a ruleset is how work gets into it. The team is also its own billing account — its allowance and any subscription belong to the team, separately from whatever the user has personally. `name` is a label shown to members, not an identifier, and does not have to be unique.",
+      "description": "Start a team so colleagues share one set of policy rules.\n\nUse when the user says a colleague cannot see their rulesets, or wants work shared with named people rather than kept to themselves.\n\nCreates a team with a ruleset library of its own and makes this user its administrator. The team starts EMPTY: their existing rulesets stay in their own workspace and are not moved or copied; copying a ruleset is how work gets into it. A team is not a billing account: it has no allowance or subscription, and each member's checks in it are billed to that member's own account. `name` is a label shown to members, not an identifier, and does not have to be unique.",
       "inputSchema": {
         "properties": {
           "name": {
