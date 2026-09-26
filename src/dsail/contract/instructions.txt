@@ -270,7 +270,7 @@ DSAIL ruleset grammar (v1.3), the subset this service compiles to SMT:
   version 1.3;                       -- optional; 1.2 and 1.3 are accepted
 
   declare <name> as boolean;         -- a yes/no claim
-  declare <name> as numeric;         -- a number; may carry a unit at the use site
+  declare <name> as numeric;         -- a number; units go on literals (below)
   declare <name> as enum ["a","b"];  -- ORDERED vocabulary (comparable with < >)
   declare <name> as enum {"a","b"};  -- UNORDERED vocabulary (== and != only)
   declare local <name> as boolean;   -- rule-local; NOT a claim, never extracted
@@ -282,6 +282,16 @@ DSAIL ruleset grammar (v1.3), the subset this service compiles to SMT:
 Enum members are double-quoted strings. Every statement ends with a semicolon.
 You do not write `let` bindings for claim values — this service injects them
 from the claim dictionary you submit to check.
+
+Literals:
+  numbers        42   3.5   0.05
+  with a unit    3000 "mi"   25000 "USD"   0 "USD"
+                 -- a number followed by the unit as a QUOTED string. A bare
+                 -- unit word is a syntax error: 3000 mi fails to parse.
+  booleans       True   False
+                 -- capitalised. Lowercase true and false are read as
+                 -- identifiers and fail as undefined variables.
+  enum members   "low"   "high"            -- double-quoted strings
 
 Expressions:
   comparison   ==  !=  <  <=  >  >=      (thresholds are STRICT: > means
@@ -306,7 +316,11 @@ whole answer:
   TRUE       the assertion holds
   FALSE      the assertion is violated
   UNKNOWN    a claim it needs was submitted as unknown, or is unconstrained
-  AMBIGUOUS  its evidence was contradicted
+  AMBIGUOUS  reserved. It means an assertion's evidence contradicted
+             itself, which needs several answers for one claim. A claim
+             dictionary holds exactly one value per claim, so no check
+             submitted to this service produces it. Handle the word if you
+             switch on results; there is no input that triggers it.
 
 There is no combined verdict, no severity and no ranking. What a violated
 assertion should cost — a refusal, a human review, a note in a file — is a
@@ -335,8 +349,11 @@ Worked example:
   declare hasAppraisal as boolean;
   declare riskTier as enum ["low","medium","high"];
 
-  assert within_cap { loanAmount <= 1000000 };
-  assert large_but_documented { Or(loanAmount <= 500000, hasAppraisal) };
+  assert within_cap { loanAmount <= 1000000 "USD" };
+  assert large_but_documented { Or(loanAmount <= 500000 "USD", hasAppraisal) };
+  assert appraisal_when_large {
+    IF loanAmount > 250000 "USD" THEN hasAppraisal ELSE True END
+  };
   assert tier_permitted { riskTier != "high" };
 
 unknown is a first-class answer. If you cannot determine a claim's value from the evidence, submit the string "unknown" (or JSON null). Never guess, never substitute a type-correct placeholder to satisfy a validator, and never omit the claim. A guessed value produces a confident TRUE or FALSE about a situation that does not exist, which is worse than no answer; "unknown" produces an honest UNKNOWN.
