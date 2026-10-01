@@ -406,7 +406,7 @@
   "info": {
     "description": "Formal policy results over a claim dictionary: every assertion in a ruleset, with what the engine concluded about it. One engine sits behind this door and an MCP door, and both return identical bytes.\n\nThis service never calls an LLM: extraction happens on your model, against the prompt pack this API generates.\n\nDSAIL ruleset grammar (v1.3), the subset this service compiles to SMT:\n\n  version 1.3;                       -- optional; 1.2 and 1.3 are accepted\n\n  declare <name> as boolean;         -- a yes/no claim\n  declare <name> as numeric;         -- a number; units go on literals (below)\n  declare <name> as enum [\"a\",\"b\"];  -- ORDERED vocabulary (comparable with < >)\n  declare <name> as enum {\"a\",\"b\"};  -- UNORDERED vocabulary (== and != only)\n  declare local <name> as boolean;   -- rule-local; NOT a claim, never extracted\n\n  assert <name> { <expr> };              -- the rule. Holds => compliant.\n  assert <name> [pessimistic] { ... };   -- unknown-resolution policy:\n                                         -- optimistic | pessimistic | neutral\n\nEnum members are double-quoted strings. Every statement ends with a semicolon.\nYou do not write `let` bindings for claim values — this service injects them\nfrom the claim dictionary you submit to check.\n\nLiterals:\n  numbers        42   3.5   0.05\n  with a unit    3000 \"mi\"   25000 \"USD\"   0 \"USD\"\n                 -- a number followed by the unit as a QUOTED string. A bare\n                 -- unit word is a syntax error: 3000 mi fails to parse.\n  booleans       True   False\n                 -- capitalised. Lowercase true and false are read as\n                 -- identifiers and fail as undefined variables.\n  enum members   \"low\"   \"high\"            -- double-quoted strings\n\nExpressions:\n  comparison   ==  !=  <  <=  >  >=      (thresholds are STRICT: > means\n                                          strictly greater, NOT at-or-above.\n                                          Write >= if you mean at-or-above.\n                                          Equality is ==, not =.)\n  arithmetic   +  -  *  /  %\n  LOGIC IS FUNCTION-STYLE, NOT INFIX. There is no `and`/`or`/`not` keyword:\n               And(a, b, ...)     Or(a, b, ...)     Not(a)\n               Xor(a, b)          Implies(a, b)     If(cond, a, b)\n  conditional  IF <cond> THEN <expr> [ELSE <expr>] END\n               CASE <subject> OF \"x\": <expr>, \"y\": <expr>, DEFAULT: <expr> END\n  quantifiers  ForAll(x in s, p)      Exists(x in s, p)\n               AtLeast(n, x in s, p)  AtMost(n, x in s, p)\n               ExactlyOne(x in s, p)  CountWhere(x in s, p)\n  sets         IsMember(v, s)  IsSubset(a, b)\n               Union(a, b)  Intersect(a, b)  Difference(a, b)\n\nWhat a check answers. Every assertion gets its own result, and that is the\nwhole answer:\n\n  TRUE       the assertion holds\n  FALSE      the assertion is violated\n  UNKNOWN    a claim it needs was submitted as unknown, or is unconstrained\n  AMBIGUOUS  reserved. It means an assertion's evidence contradicted\n             itself, which needs several answers for one claim. A claim\n             dictionary holds exactly one value per claim, so no check\n             submitted to this service produces it. Handle the word if you\n             switch on results; there is no input that triggers it.\n\nThere is no combined verdict, no severity and no ranking. What a violated\nassertion should cost — a refusal, a human review, a note in a file — is a\ndecision for the system reading the result, and this service does not make it.\n\nHost annotations. These are ordinary DSAIL comments, invisible to the compiler,\nread by this service. Every one of them describes a CLAIM — what to ask for it\nand what a valid answer looks like. None of them decides an outcome:\n\n  // @ask <claim> What is ...?       -- the question shown to an extractor\n  // @context <claim> <text>         -- extra context for the extractor\n  // @range <claim> 0..100           -- numeric bounds, enforced at check time\n  // @unit <claim> USD               -- expected unit for a numeric claim\n\n@effect, @effect-default and @consistency are NOT recognised. A ruleset\ncarrying one does not compile.\n\nRule descriptions. Directly above every assert, with no blank line between,\nwrite what the rule requires in plain words as an ordinary comment block (no\n@ tag). The review widget shows it as the rule's description and a person\nedits it there, so it must say what the assert beneath it actually checks.\ndsail_compile over MCP refuses an assert that has none, naming its line.\n\nWorked example:\n\n  version 1.3;\n  // @ask loanAmount What is the loan principal, in USD?\n  // @unit loanAmount USD\n  // @range loanAmount 0..100000000\n  declare loanAmount as numeric;\n  // @ask hasAppraisal Does the file contain a completed appraisal?\n  declare hasAppraisal as boolean;\n  declare riskTier as enum [\"low\",\"medium\",\"high\"];\n\n  // No loan may exceed one million dollars.\n  assert within_cap { loanAmount <= 1000000 \"USD\" };\n  // A loan over 500,000 USD needs an appraisal on file.\n  assert large_but_documented { Or(loanAmount <= 500000 \"USD\", hasAppraisal) };\n  // A loan over 250,000 USD needs an appraisal on file.\n  assert appraisal_when_large {\n    IF loanAmount > 250000 \"USD\" THEN hasAppraisal ELSE True END\n  };\n  // High-risk applicants are not permitted.\n  assert tier_permitted { riskTier != \"high\" };\n",
     "title": "Agent API — REST door",
-    "version": "1.0.5"
+    "version": "1.0.6"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -440,6 +440,171 @@
               }
             },
             "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "CREDENTIAL_REQUIRED or CREDENTIAL_INVALID: no `x-jaxon-credential` header, or one that is not recognised, was revoked or has expired. The header takes an evaluation credential or a production API key; a signed-in caller needs neither."
           }
         },
         "summary": "Entitlement and usage position — the enforced one since TJP-623 — plus the terms version and vocabulary version applicable to this tier",
@@ -836,6 +1001,336 @@
               }
             },
             "description": "The body did not match the contract, that is not a content hash, or `name` is not a usable ruleset name — in which case nothing was saved and no approval was recorded."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "CREDENTIAL_REQUIRED or CREDENTIAL_INVALID: no `x-jaxon-credential` header, or one that is not recognised, was revoked or has expired. The header takes an evaluation credential or a production API key; a signed-in caller needs neither."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "CREDENTIAL_SCOPE: an evaluation credential may not perform this operation. A production API key may."
           },
           "404": {
             "content": {
@@ -1580,6 +2075,336 @@
             },
             "description": "The request body did not match the contract (shape, not content)."
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "CREDENTIAL_REQUIRED or CREDENTIAL_INVALID: no `x-jaxon-credential` header, or one that is not recognised, was revoked or has expired. The header takes an evaluation credential or a production API key; a signed-in caller needs neither."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "ENTITLEMENT_EXCEEDED: the account's check allowance for this period is used up. The error carries `tier`, `used`, `limit_value`, `period` and `upgrade_url`."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -2074,6 +2899,171 @@
               }
             },
             "description": "The claim dictionary was rejected. Every failing field is named."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "EVALUATION_LIMIT: an evaluation credential reached its daily or lifetime cap. A production API key is not subject to it."
           },
           "500": {
             "content": {
@@ -2969,6 +3959,171 @@
             },
             "description": "The request body did not match the contract (shape, not content)."
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "CREDENTIAL_REQUIRED or CREDENTIAL_INVALID: no `x-jaxon-credential` header, or one that is not recognised, was revoked or has expired. The header takes an evaluation credential or a production API key; a signed-in caller needs neither."
+          },
           "413": {
             "content": {
               "application/json": {
@@ -3299,6 +4454,171 @@
             },
             "description": "The source did not compile. The error carries diagnostics and the grammar as a hint."
           },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "EVALUATION_LIMIT: an evaluation credential reached its daily or lifetime cap. A production API key is not subject to it."
+          },
           "503": {
             "content": {
               "application/json": {
@@ -3500,6 +4820,336 @@
               }
             },
             "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "CREDENTIAL_REQUIRED or CREDENTIAL_INVALID: no `x-jaxon-credential` header, or one that is not recognised, was revoked or has expired. The header takes an evaluation credential or a production API key; a signed-in caller needs neither."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "CREDENTIAL_SCOPE: an evaluation credential may not issue a production key, or the account already holds as many production API keys as its tier permits."
           }
         },
         "summary": "Issue a production REST API key for the caller's own project (TJP-623). The token appears once.",
@@ -3990,6 +5640,171 @@
               }
             },
             "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "CREDENTIAL_REQUIRED or CREDENTIAL_INVALID: no `x-jaxon-credential` header, or one that is not recognised, was revoked or has expired. The header takes an evaluation credential or a production API key; a signed-in caller needs neither."
           }
         },
         "summary": "This deployment's own feature flags (not the platform's)",
@@ -4307,6 +6122,171 @@
               }
             },
             "description": "The request body or a path parameter did not match the contract."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "CREDENTIAL_REQUIRED or CREDENTIAL_INVALID: no `x-jaxon-credential` header, or one that is not recognised, was revoked or has expired. The header takes an evaluation credential or a production API key; a signed-in caller needs neither."
           },
           "404": {
             "content": {
@@ -4802,6 +6782,171 @@
               }
             },
             "description": "The source did not compile."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "EVALUATION_LIMIT: an evaluation credential reached its daily or lifetime cap. A production API key is not subject to it."
           }
         },
         "summary": "Prompt pack for source you have not compiled yet",
@@ -5120,6 +7265,171 @@
               }
             },
             "description": "That is not a content hash (64 lowercase hex characters)."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "CREDENTIAL_REQUIRED or CREDENTIAL_INVALID: no `x-jaxon-credential` header, or one that is not recognised, was revoked or has expired. The header takes an evaluation credential or a production API key; a signed-in caller needs neither."
           },
           "404": {
             "content": {
@@ -5450,6 +7760,171 @@
               }
             },
             "description": "The stored source no longer compiles under this engine."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "EVALUATION_LIMIT: an evaluation credential reached its daily or lifetime cap. A production API key is not subject to it."
           }
         },
         "summary": "Extraction prompts, claim schema and validation contract for a ruleset",
@@ -5580,6 +8055,336 @@
               }
             },
             "description": "The library."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "CREDENTIAL_REQUIRED or CREDENTIAL_INVALID: no `x-jaxon-credential` header, or one that is not recognised, was revoked or has expired. The header takes an evaluation credential or a production API key; a signed-in caller needs neither."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "CREDENTIAL_SCOPE: an evaluation credential may not perform this operation. A production API key may."
           }
         },
         "summary": "List named rulesets, with what each one decides",
@@ -5772,6 +8577,336 @@
               }
             },
             "description": "The name or the body did not match the contract."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "CREDENTIAL_REQUIRED or CREDENTIAL_INVALID: no `x-jaxon-credential` header, or one that is not recognised, was revoked or has expired. The header takes an evaluation credential or a production API key; a signed-in caller needs neither."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "CREDENTIAL_SCOPE: an evaluation credential may not perform this operation. A production API key may."
           },
           "404": {
             "content": {
@@ -6878,6 +10013,336 @@
             },
             "description": "That is not a usable ruleset name."
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "CREDENTIAL_REQUIRED or CREDENTIAL_INVALID: no `x-jaxon-credential` header, or one that is not recognised, was revoked or has expired. The header takes an evaluation credential or a production API key; a signed-in caller needs neither."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "CREDENTIAL_SCOPE: an evaluation credential may not perform this operation. A production API key may."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -7453,6 +10918,171 @@
               }
             },
             "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "CREDENTIAL_REQUIRED or CREDENTIAL_INVALID: no `x-jaxon-credential` header, or one that is not recognised, was revoked or has expired. The header takes an evaluation credential or a production API key; a signed-in caller needs neither."
           }
         },
         "summary": "Which unit standards are loaded and what this project added",
@@ -7657,6 +11287,171 @@
               }
             },
             "description": "Both unit names are required."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "CREDENTIAL_REQUIRED or CREDENTIAL_INVALID: no `x-jaxon-credential` header, or one that is not recognised, was revoked or has expired. The header takes an evaluation credential or a production API key; a signed-in caller needs neither."
           }
         },
         "summary": "Whether one unit converts to another, and by what factor",
@@ -7851,6 +11646,336 @@
               }
             },
             "description": "The converter did not match the contract. A factor is required and is never inferred."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "CREDENTIAL_REQUIRED or CREDENTIAL_INVALID: no `x-jaxon-credential` header, or one that is not recognised, was revoked or has expired. The header takes an evaluation credential or a production API key; a signed-in caller needs neither."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "actual": {
+                          "description": "How much the request used, where that is known. Absent for solver_memory_mb: the solver stops at the limit.",
+                          "type": "integer"
+                        },
+                        "budget": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "enum": [
+                            "VALIDATION_REJECTED",
+                            "COMPILE_FAILED",
+                            "BUDGET_EXCEEDED",
+                            "RULESET_NOT_FOUND",
+                            "ENGINE_ERROR",
+                            "ENGINE_BUSY",
+                            "BAD_REQUEST",
+                            "CREDENTIAL_REQUIRED",
+                            "CREDENTIAL_INVALID",
+                            "CREDENTIAL_SCOPE",
+                            "EVALUATION_LIMIT",
+                            "ENTITLEMENT_EXCEEDED",
+                            "TIER_UNAVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "diagnostics": {
+                          "items": {
+                            "properties": {
+                              "line": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "severity": {
+                                "enum": [
+                                  "error",
+                                  "warning"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "severity",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "docs": {
+                          "description": "The docs-site page that resolves this code (markdown). Fetch it before retrying blind.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "failure_count": {
+                          "description": "How many fields failed in total. Equal to the length of `failures` unless a very large rejection was truncated, which the message says.",
+                          "type": "integer"
+                        },
+                        "failures": {
+                          "description": "EVERY failing field, not the first one.",
+                          "items": {
+                            "properties": {
+                              "expected": {
+                                "type": "string"
+                              },
+                              "field": {
+                                "type": "string"
+                              },
+                              "received": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "expected",
+                              "received"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "hint": {
+                          "description": "The grammar guide, carried on compile failures so the next call can succeed without a human.",
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "retry_after_ms": {
+                          "description": "ENGINE_BUSY only: when to retry. The REST door also sends it, in seconds, as Retry-After.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "type": "object"
+                    },
+                    "ok": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "versions": {
+                      "description": "Which engine and which wire contract produced this response.",
+                      "properties": {
+                        "engine": {
+                          "example": "dsail-core",
+                          "type": "string"
+                        },
+                        "engine_version": {
+                          "type": "string"
+                        },
+                        "language_version": {
+                          "description": "DSAIL language version.",
+                          "type": "string"
+                        },
+                        "service_version": {
+                          "type": "string"
+                        },
+                        "supported_language_versions": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "wire_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "engine",
+                        "engine_version",
+                        "language_version",
+                        "service_version",
+                        "wire_version"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "versions"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "CREDENTIAL_SCOPE: an evaluation credential may not perform this operation. A production API key may."
           },
           "413": {
             "content": {

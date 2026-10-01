@@ -3245,7 +3245,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Issues a production REST API key for this account.\n\nUse it when the user is ready to run checks from their own code: code written from this service's client examples, or code that calls the DSAIL REST API directly, authenticates with this key and checks against the rulesets this account already holds, with the same results a check here returns. Optional `label` records what the key is for. The token is returned once and cannot be recovered; the service keeps only a hash. An account has a limited number of keys.",
+      "description": "Issues a REST API key for this account.\n\nThe key authenticates calls to the DSAIL REST API, sent as the `x-jaxon-credential` header, and reaches the rulesets this account holds. Optional `label` records what the key is for. The token is returned once and cannot be recovered; the service keeps only a hash. An account has a limited number of keys.",
       "inputSchema": {
         "properties": {
           "label": {
