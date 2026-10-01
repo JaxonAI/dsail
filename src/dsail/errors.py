@@ -156,6 +156,12 @@ class ServiceError(DSAILError):
     def versions(self):
         return self.payload.get("versions") or {}
 
+    def explain(self, note):
+        """Append ``note`` to the message the caller reads."""
+        self.message = "%s %s" % (self.message, note)
+        self.args = ("%s: %s" % (self.code, self.message),)
+        return self
+
 
 class ValidationRejected(ServiceError):
     """The claim dictionary did not satisfy the ruleset's validation contract.
@@ -238,6 +244,9 @@ class CredentialScopeExceeded(ServiceError):
 
 
 CREDENTIAL_CODES = ("CREDENTIAL_REQUIRED", "CREDENTIAL_INVALID")
+
+# Errors whose cause can be the credential sent rather than the request made.
+CREDENTIAL_DEPENDENT_CODES = CREDENTIAL_CODES + ("CREDENTIAL_SCOPE", "RULESET_NOT_FOUND")
 
 _BY_CODE = {
     cls.code: cls

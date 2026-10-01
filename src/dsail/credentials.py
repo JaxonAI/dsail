@@ -51,6 +51,27 @@ def resolve(explicit=None):
     return token or None
 
 
+def origin(explicit=None):
+    """Where :func:`resolve` found the credential: ``"argument"``,
+    ``"environment"``, the saved file's path, or ``None`` when there is none.
+
+    An error that depends on which credential was sent names this, because
+    the saved file is read silently and can hold a credential its owner has
+    forgotten about.
+    """
+    if explicit:
+        return "argument"
+    from_env = os.environ.get(ENV_CREDENTIAL)
+    if from_env and from_env.strip():
+        return "environment"
+    path = credential_path()
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            return path if handle.read().strip() else None
+    except OSError:
+        return None
+
+
 def store(token):
     """Persist a credential for later calls, readable by this user only."""
     directory = config_dir()

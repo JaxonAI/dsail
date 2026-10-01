@@ -2,7 +2,7 @@
   The DSAIL review UI (TJP-636). NOT a document: a fragment, fetched over
   the connector by widget-shell.html and injected into it, so a deployed
   change to this file reaches every connected user on their next
-  conversation with no disconnect/reconnect. `8e1d1c0535` is substituted
+  conversation with no disconnect/reconnect. `57049fd630` is substituted
   by agent_api.widget with this file's own content hash.
 
   Four tools render here, each recognised by the shape of its own payload
@@ -496,7 +496,7 @@
      because widget-shell.html reads it out of these bytes to name the build in
      its failure panel, which is the one place a human needs it — when the UI
      did not load and there is no payload to read. -->
-<div id="app" class="w" hidden data-ui-build="8e1d1c0535"></div>
+<div id="app" class="w" hidden data-ui-build="57049fd630"></div>
 <script>
 /* The review UI, fetched and run by widget-shell.html at open time (TJP-636).
  * The shell owns the app bridge: it is already connected by the time this
@@ -2386,14 +2386,16 @@
         file: "claims.json", data: JSON.stringify(wire, null, 2),
         hint: "claims.json holds the " + ids.length + " values in this check.",
         // The address is written into the code whenever it is not the SDK's
-        // default: a key issued here is valid only here, and a client pointed
-        // elsewhere was refused and fell back to an evaluation credential that
-        // cannot see this ruleset (measured 2026-09-30: RULESET_NOT_FOUND).
-        // auto_credential=False makes a missing or wrong key fail as exactly
-        // that, rather than as a missing ruleset.
-        text: ["# pip install dsail", "# export DSAIL_CREDENTIAL=<the API key issued below>", "import json", "import dsail", ""]
+        // default, because a key issued here is valid only here. The key is
+        // read from the environment by name, so an unset DSAIL_CREDENTIAL stops
+        // the script on that line instead of sending whatever credential the
+        // SDK has saved, and auto_credential=False keeps a wrong key from being
+        // swapped for an evaluation credential that cannot see this ruleset.
+        text: ["# pip install dsail", "# export DSAIL_CREDENTIAL=<the API key issued below>",
+          "import json", "import os", "", "import dsail", ""]
           .concat([
-            "client = dsail.Client(" + (url !== DEFAULT_API_URL ? 'url="' + url + '", ' : "") + "auto_credential=False)",
+            "client = dsail.Client(" + (url !== DEFAULT_API_URL ? 'url="' + url + '", ' : "") +
+              'credential=os.environ["DSAIL_CREDENTIAL"], auto_credential=False)',
             'claims = json.load(open("claims.json"))', "",
             "result = client.check(", "    claims,", '    ruleset_hash="' + hash + '",', ")",
             "for assertion in result.assertions:", "    print(assertion.name, assertion.check)", "",

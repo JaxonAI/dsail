@@ -101,6 +101,7 @@ class Transport:
     def __init__(self, base_url, credential=None, timeout=120, door=None):
         self.base_url = base_url.rstrip("/")
         self.credential = credentials.resolve(credential)
+        self.credential_origin = credentials.origin(credential)
         self.session = session.resolve()
         self.timeout = timeout
         self.door = door

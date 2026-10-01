@@ -252,6 +252,34 @@ class TransportOverSocketsTests(unittest.TestCase):
             Client(url=self.url, auto_credential=False).health()
         self.assertEqual(len(self.script.requests), 1)
 
+    def test_a_not_found_names_the_saved_credential_it_was_sent_with(self):
+        config = tempfile.mkdtemp(prefix="dsail-saved-cred-")
+        with mock.patch.dict(os.environ, {"DSAIL_CONFIG_DIR": config}):
+            path = credentials.store("dsail_eval_left_over")
+            self.script.responses.append((404, json.dumps(_envelope("RULESET_NOT_FOUND"))))
+            with self.assertRaises(RulesetNotFound) as caught:
+                Client(url=self.url, auto_credential=False).check({"a": 1}, ruleset_hash="h")
+        message = str(caught.exception)
+        self.assertIn(path, message)
+        self.assertIn(credentials.ENV_CREDENTIAL, message)
+        self.assertEqual(caught.exception.code, "RULESET_NOT_FOUND")
+
+    def test_an_exported_credential_adds_nothing_to_the_error(self):
+        with mock.patch.dict(os.environ, {credentials.ENV_CREDENTIAL: "dsail_key_mine"}):
+            self.script.responses.append((404, json.dumps(_envelope("RULESET_NOT_FOUND"))))
+            with self.assertRaises(RulesetNotFound) as caught:
+                Client(url=self.url, auto_credential=False).check({"a": 1}, ruleset_hash="h")
+        self.assertNotIn("saved in", str(caught.exception))
+
+    def test_an_error_that_is_not_about_the_credential_adds_nothing(self):
+        config = tempfile.mkdtemp(prefix="dsail-saved-cred-")
+        with mock.patch.dict(os.environ, {"DSAIL_CONFIG_DIR": config}):
+            credentials.store("dsail_key_saved")
+            self.script.responses.append((422, json.dumps(_envelope("VALIDATION_REJECTED", failures=[]))))
+            with self.assertRaises(ValidationRejected) as caught:
+                Client(url=self.url, auto_credential=False).check({"a": 1}, ruleset_hash="h")
+        self.assertNotIn("saved in", str(caught.exception))
+
     def test_scope_refusal_is_typed(self):
         self.script.responses.append((403, json.dumps(_envelope("CREDENTIAL_SCOPE", operation="save_ruleset"))))
         with self.assertRaises(CredentialScopeExceeded):

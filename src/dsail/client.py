@@ -16,7 +16,13 @@ import os
 import urllib.parse
 
 from dsail import credentials
-from dsail.errors import CREDENTIAL_CODES, ServiceError, ValidationRejected, error_from_payload
+from dsail.errors import (
+    CREDENTIAL_CODES,
+    CREDENTIAL_DEPENDENT_CODES,
+    ServiceError,
+    ValidationRejected,
+    error_from_payload,
+)
 from dsail.transport import USER_AGENT, Transport
 from dsail.types import CheckResult, CompileResult, PromptPack
 
@@ -110,8 +116,26 @@ class Client:
                 "versions": {},
             }
         if status >= 400 or (isinstance(payload, dict) and payload.get("ok") is False):
-            raise error_from_payload(payload if isinstance(payload, dict) else {}, status)
+            error = error_from_payload(payload if isinstance(payload, dict) else {}, status)
+            note = self._credential_note(error)
+            raise error.explain(note) if note else error
         return payload
+
+    def _credential_note(self, error):
+        """What an error that depends on the credential says about the one sent.
+
+        Only the saved file needs naming: a credential passed in or exported is
+        one the caller chose, while the file is read silently and may hold an
+        evaluation credential stored by an earlier run.
+        """
+        if getattr(error, "code", None) not in CREDENTIAL_DEPENDENT_CODES:
+            return None
+        origin = self.transport.credential_origin
+        if origin in (None, "argument", "environment"):
+            return None
+        return ("This call sent the credential saved in %s, because %s is not set; "
+                "export %s=<your API key> to use your account's."
+                % (origin, credentials.ENV_CREDENTIAL, credentials.ENV_CREDENTIAL))
 
     # ------------------------------------------------------------ operations
 
@@ -274,6 +298,7 @@ class Client:
         """Persist ``token`` for later processes and use it from now on."""
         path = credentials.store(token)
         self.transport.credential = token.strip()
+        self.transport.credential_origin = path
         return path
 
 
