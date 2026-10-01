@@ -57,7 +57,7 @@
     "dsail_check": "Check extracted values against a written policy and get the same answer every time, with the rule that decided.",
     "dsail_get_prompt_pack": "Get the exact questions to ask a document so the answers can be checked against a written policy.",
     "dsail_save_ruleset": "Keep a written policy's rules as a named, immutable revision, so a later check answers exactly as this one did.",
-    "dsail_load_ruleset": "Show a saved policy ruleset exactly as it was stored.",
+    "dsail_load_ruleset": "Read a saved policy ruleset exactly as it was stored.",
     "dsail_list_rulesets": "See which written policies already have rules a program can check.",
     "dsail_record_approval": "Bind a person's sign-off to the exact rules a program will check.",
     "dsail_get_account_status": "Know how much of this credential's allowance is used before a limit interrupts a check.",

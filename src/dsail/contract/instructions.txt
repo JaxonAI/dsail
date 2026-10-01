@@ -65,8 +65,9 @@ received}; use that feedback to address the rejected fields.
 Rulesets are saved as named, immutable revisions. Saving over a name links the
 previous hash as the parent; nothing is edited in place. Human approval binds to
 one exact ruleset hash and does not cover a later revision. On clients that
-render MCP Apps, dsail_review shows an inline widget containing the source,
-claim manifest, diff, an exercise panel and the approve control.
+render MCP Apps, dsail_review shows an inline widget: each rule with the claims
+it reads and a check control, the source, and the approve control. A
+dsail_check result renders in the same widget, rule by rule.
 
 Numerics are dimensional. The unit library says whether two units convert, and a
 converter can be added using a factor supplied by a person. Currency alias
@@ -101,6 +102,22 @@ exactly that call with those arguments (source byte-for-byte), report the
 result in the rules' own words, and call dsail_review on the resulting hash so
 the user sees the updated widget. Do not rewrite, "improve" or second-guess
 what the widget composed: it is the user's own action, relayed.
+
+WHEN THE WIDGET ASKS YOU TO UPDATE A RULE TO MATCH ITS NEW DESCRIPTION (or to
+describe rules that have none), the person wrote and confirmed the words in the
+widget: do not ask them to confirm again. The message quotes the new
+description; the widget has already saved it above the rule under that name,
+so dsail_load_ruleset by name returns the source to work from. Where the
+description and the DSAIL beneath it disagree, the DESCRIPTION IS THE EDIT and
+is right: change the DSAIL to match it, never the reverse. (For a ruleset with
+no name the message also carries the hash.)
+Rewrite only the rules named, adding or changing the claims their new
+descriptions need, and keep each description above its assert. Then, in this
+order: dsail_compile with the current hash as parent_hash (fix any
+diagnostics), then dsail_save_ruleset under the ruleset's name, which shows the
+person the saved revision; for a ruleset with no name, dsail_review the new
+hash instead. Ask first only if a description is ambiguous, and otherwise
+reply in a sentence or two: the widget shows the result.
 
 Every structured error carries `docs`, the URL of the page that resolves it.
 Fetch it before retrying blind; the whole site is enumerated at
@@ -174,8 +191,10 @@ dsail_list_rulesets renders the same way: it shows the user their ruleset
 library as a table they can click through. Do not restate its rows as prose —
 they are already on screen.
 
-SHOW A STORED RULESET BY LOADING IT. dsail_load_ruleset returns the whole
-contract for bytes that are already saved; re-compiling source you remember
+READ A STORED RULESET BY LOADING IT, AND SHOW IT WITH dsail_review.
+dsail_load_ruleset returns the whole contract for bytes that are already saved,
+and shows nothing on screen; to show a stored ruleset to the person, call
+dsail_review with its name (or hash). Re-compiling source you remember
 from earlier in this conversation produces a DIFFERENT object the moment your
 copy and the stored text disagree, and an approval follows the stored bytes.
 When a compile really is needed — the user asked for an edit — pass the source
@@ -338,6 +357,12 @@ and what a valid answer looks like. None of them decides an outcome:
 @effect, @effect-default and @consistency are NOT recognised. A ruleset
 carrying one does not compile.
 
+Rule descriptions. Directly above every assert, with no blank line between,
+write what the rule requires in plain words as an ordinary comment block (no
+@ tag). The review widget shows it as the rule's description and a person
+edits it there, so it must say what the assert beneath it actually checks.
+dsail_compile over MCP refuses an assert that has none, naming its line.
+
 Worked example:
 
   version 1.3;
@@ -349,11 +374,15 @@ Worked example:
   declare hasAppraisal as boolean;
   declare riskTier as enum ["low","medium","high"];
 
+  // No loan may exceed one million dollars.
   assert within_cap { loanAmount <= 1000000 "USD" };
+  // A loan over 500,000 USD needs an appraisal on file.
   assert large_but_documented { Or(loanAmount <= 500000 "USD", hasAppraisal) };
+  // A loan over 250,000 USD needs an appraisal on file.
   assert appraisal_when_large {
     IF loanAmount > 250000 "USD" THEN hasAppraisal ELSE True END
   };
+  // High-risk applicants are not permitted.
   assert tier_permitted { riskTier != "high" };
 
 unknown is a first-class answer. If you cannot determine a claim's value from the evidence, submit the string "unknown" (or JSON null). Never guess, never substitute a type-correct placeholder to satisfy a validator, and never omit the claim. A guessed value produces a confident TRUE or FALSE about a situation that does not exist, which is worse than no answer; "unknown" produces an honest UNKNOWN.

@@ -28,10 +28,13 @@ def _quoted(value):
 
 
 def _compile(args):
+    # Authored through a coding agent and reviewed by a person rule by rule,
+    # exactly as on the chat connectors, so every rule needs its description.
     return "POST", "/v1/compile", {
         "source": args.get("source"),
         "parent_hash": args.get("parent_hash"),
         "label": args.get("label"),
+        "require_descriptions": True,
     }, None
 
 
