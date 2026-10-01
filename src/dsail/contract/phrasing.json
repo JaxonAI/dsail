@@ -61,7 +61,7 @@
     "dsail_list_rulesets": "See which written policies already have rules a program can check.",
     "dsail_record_approval": "Bind a person's sign-off to the exact rules a program will check.",
     "dsail_get_account_status": "Know how much of this credential's allowance is used before a limit interrupts a check.",
-    "dsail_issue_api_key": "Move a policy check from a chat into production code without rewriting the rules a person already approved.",
+    "dsail_issue_api_key": "Issues a production REST API key for this account.",
     "dsail_unit_library": "Find out whether two units convert before a rule compares them, so the check does not answer UNKNOWN forever.",
     "dsail_add_unit_converter": "Give a policy check the conversion it needs between two units, with a factor a person supplied.",
     "dsail_review": "Show a person the rules a program will check, so they can approve exactly those bytes.",

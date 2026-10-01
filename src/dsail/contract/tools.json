@@ -2557,7 +2557,7 @@
       "annotations": {
         "destructiveHint": false,
         "idempotentHint": false,
-        "openWorldHint": false,
+        "openWorldHint": true,
         "readOnlyHint": false
       },
       "description": "Bind a person's sign-off to the exact rules a program will check.\n\nUse when a reviewer has seen the formal rules and is ready to sign off, or revised rules need a fresh human approval.\n\nBinds a human approval to one exact ruleset hash. An approval follows the bytes, not the name: a later revision is not covered by it.\n\n`name` saves the ruleset under that name as part of approving it. The name is bound BEFORE the approval is recorded, so what a person approves is in their library afterwards instead of being reachable only by a hash they would have to have kept; it is optional only for a hash already saved under a name. `approver` and `note` are recorded with the approval. The review widget's approve control composes the exact arguments for this call, because a chat client cannot call tools from inside a widget.",
@@ -3245,7 +3245,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Move a policy check from a chat into production code without rewriting the rules a person already approved.\n\nUse when the user wants code outside a chat to run checks against the rulesets this account already holds.\n\nIssues a production REST API key for this account, for code that will call DSAIL outside a chat. The key reaches exactly the rulesets this account already holds, so a check from a service answers what a check from here answers. Optional `label` records what it is for. The token is returned ONCE and is not recoverable afterwards; the service keeps only a hash of it. An account has a limited number of keys.",
+      "description": "Issues a production REST API key for this account.\n\nUse it when the user is ready to run checks from their own code: code written from this service's client examples, or code that calls the DSAIL REST API directly, authenticates with this key and checks against the rulesets this account already holds, with the same results a check here returns. Optional `label` records what the key is for. The token is returned once and cannot be recovered; the service keeps only a hash. An account has a limited number of keys.",
       "inputSchema": {
         "properties": {
           "label": {
@@ -3536,7 +3536,7 @@
         ],
         "type": "object"
       },
-      "title": "Issue an API key for production code"
+      "title": "Issue an API key"
     },
     {
       "annotations": {
@@ -5791,7 +5791,7 @@
       "annotations": {
         "destructiveHint": false,
         "idempotentHint": false,
-        "openWorldHint": false,
+        "openWorldHint": true,
         "readOnlyHint": false
       },
       "description": "Put a copy of one of your saved policy rulesets into a team.\n\nUse when a ruleset the user already has should also be available to a team — the usual way a new team gets its first library.\n\nCopies a saved ruleset from one of this user's workspaces into another. It is a copy: the original stays exactly where it was. `destination` and the optional `source` name a team or `personal`; `source` defaults to the workspace in use. The revisions it cites travel with it so a diff still works, but recorded approvals stay behind — an approval is one workspace's sign-off, so the copy arrives unapproved and must be approved there if the team needs that. A name already in use in the destination is refused rather than overwritten; `new_name` copies it under another.",
