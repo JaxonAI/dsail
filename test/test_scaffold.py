@@ -9,6 +9,25 @@ import unittest
 from dsail import contract, scaffold
 from dsail._version import __version__
 
+
+def _frontmatter(text):
+    """A skill file's frontmatter as a strict YAML reader sees it, for the
+    flat ``key: value`` lines the scaffold writes: a double-quoted value is a
+    JSON string, and a plain value may not carry ``: `` or `` #``."""
+    head, sep, _ = text[len("---\n"):].partition("\n---\n")
+    if not text.startswith("---\n") or not sep:
+        raise AssertionError("no frontmatter")
+    fields = {}
+    for line in head.splitlines():
+        key, value = line.split(": ", 1)
+        if value.startswith('"'):
+            value = json.loads(value)
+        elif ": " in value or " #" in value:
+            raise AssertionError("plain value a YAML reader rejects: %r" % line[:80])
+        fields[key] = value
+    return fields
+
+
 ALL_FILES = {
     scaffold.SKILL_RELATIVE,
     scaffold.CODEX_SKILL_RELATIVE,
@@ -30,6 +49,9 @@ BUNDLE_FILES = (
     os.path.join("plugins", "dsail", ".mcp.json"),
     os.path.join("plugins", "dsail", "README.md"),
     os.path.join("plugins", "dsail", "skills", "dsail", "SKILL.md"),
+) + tuple(
+    os.path.join("plugins", "dsail", "skills", skill["name"], "SKILL.md")
+    for skill in contract.phrasing()["directory_listing"]["domain_skills"]
 )
 
 
@@ -162,7 +184,7 @@ class CodexPluginTests(unittest.TestCase):
         with open(os.path.join(self.root, relative), "r", encoding="utf-8") as handle:
             return handle.read()
 
-    def test_the_bundle_has_the_marketplace_layout_and_the_skill_is_the_init_skill(self):
+    def test_the_bundle_has_the_marketplace_layout_and_the_plugin_skill_is_the_init_skill_relisted(self):
         outcomes = scaffold.codex_plugin(self.root)
         self.assertEqual(set(outcomes.values()), {"created"})
         marketplace = self._json(scaffold.PLUGIN_MARKETPLACE_RELATIVE)
@@ -186,11 +208,35 @@ class CodexPluginTests(unittest.TestCase):
         self.assertEqual(mcp, {"mcpServers": {"dsail": {"command": "dsail", "args": ["mcp"]}}})
         self.assertFalse(os.path.exists(os.path.join(self.root, "plugins", "dsail", ".app.json")))
 
-        self.assertEqual(self._text(os.path.join("plugins", "dsail", "skills", "dsail", "SKILL.md")),
-                         scaffold.skill_markdown())
+        # The plugin's main skill is the `dsail init` skill with two changes:
+        # the directory listing's description, and review guidance for a
+        # client connected to the hosted server.
+        listing = contract.phrasing()["directory_listing"]
+        plugin_skill = self._text(os.path.join("plugins", "dsail", "skills", "dsail", "SKILL.md"))
+        self.assertEqual(plugin_skill, scaffold.plugin_skill_markdown())
+        self.assertEqual(_frontmatter(plugin_skill), {"name": "dsail", "description": listing["skill_description"]})
+        self.assertIn("`dsail_review` once", plugin_skill)
+        init_skill = scaffold.skill_markdown()
+        tail = init_skill.split("- Integration code fetches the prompt pack", 1)[1]
+        self.assertTrue(plugin_skill.endswith(tail), "only the description and the review bullet differ")
+        for skill in listing["domain_skills"]:
+            with self.subTest(skill=skill["name"]):
+                text = self._text(os.path.join("plugins", "dsail", "skills", skill["name"], "SKILL.md"))
+                self.assertEqual(text, scaffold.domain_skill_markdown(skill))
+                self.assertEqual(_frontmatter(text), skill)
         readme = self._text(os.path.join("plugins", "dsail", "README.md"))
         self.assertIn(contract.phrasing()["lead"], readme)
+        self.assertIn(listing["description"], readme)
         self.assertIn("codex plugin marketplace add", readme)
+
+    def test_the_init_skill_is_unchanged_by_the_directory_listing(self):
+        """`dsail init` registers the stdio proxy, so its skill keeps the lead
+        and sends every review to `dsail_open_review`."""
+        skill = scaffold.skill_markdown()
+        self.assertEqual(_frontmatter(skill), {"name": "dsail", "description": scaffold.skill_description()})
+        self.assertNotIn(contract.phrasing()["directory_listing"]["skill_description"], skill)
+        self.assertNotIn("`dsail_review` once", skill)
+        self.assertIn("call the `dsail_open_review` MCP tool", skill)
 
     def test_an_app_id_bundles_the_connector_and_its_absence_removes_it(self):
         scaffold.codex_plugin(self.root, app_id="asdk_app_0123")
@@ -233,36 +279,53 @@ class PluginBundleTests(unittest.TestCase):
         self.assertEqual(set(outcomes), set(BUNDLE_FILES))
         self.assertEqual(set(outcomes.values()), {"created"})
         lead = contract.phrasing()["lead"]
+        listing = contract.phrasing()["directory_listing"]
+        hosted = {"dsail": {"type": "http", "url": contract.phrasing()["api_url"].rstrip("/") + "/mcp"}}
 
         marketplace = self._json(self.root, scaffold.CLAUDE_MARKETPLACE_RELATIVE)
         self.assertEqual(marketplace["name"], scaffold.MARKETPLACE_NAME)
         self.assertEqual(marketplace["owner"]["name"], "Jaxon, Inc.")
         self.assertEqual(marketplace["metadata"], {"pluginRoot": "./plugins"})
+        self.assertEqual(marketplace["description"], lead)
         (entry,) = marketplace["plugins"]
         self.assertEqual(entry["name"], "dsail")
         self.assertEqual(entry["source"], "./plugins/dsail")
-        self.assertEqual(entry["description"], lead)
+        self.assertEqual(entry["displayName"], listing["display_name"])
+        self.assertEqual(entry["description"], listing["description"])
         self.assertEqual(entry["version"], __version__)
         self.assertEqual(entry["homepage"], contract.docs_url())
         self.assertEqual(entry["repository"], scaffold.PUBLIC_REPOSITORY)
         for tag in entry["tags"]:
             self.assertIn(tag, contract.phrasing()["trigger_phrases"].values())
 
+        # The Claude manifest is the directory listing, and names the hosted
+        # server: claude.ai ignores a plugin's local servers, and Claude Code
+        # lets this declaration replace the proxy `.mcp.json` declares.
         manifest = self._json(self.root, os.path.join("plugins", "dsail", scaffold.CLAUDE_PLUGIN_MANIFEST_RELATIVE))
         self.assertEqual(manifest["name"], "dsail")
+        self.assertEqual(manifest["displayName"], listing["display_name"])
         self.assertEqual(manifest["version"], __version__)
-        self.assertEqual(manifest["description"], lead)
+        self.assertEqual(manifest["description"], listing["description"])
         self.assertEqual(manifest["skills"], "./skills/")
-        self.assertEqual(manifest["mcpServers"], "./.mcp.json")
+        self.assertEqual(manifest["mcpServers"], hosted)
 
-        # The Codex half is untouched by the Claude half.
+        # The Codex half keeps the lead and the stdio proxy.
         codex = self._json(self.root, os.path.join("plugins", "dsail", scaffold.PLUGIN_MANIFEST_RELATIVE))
         self.assertEqual(codex["version"], __version__)
+        self.assertEqual(codex["description"], lead)
+        self.assertEqual(codex["mcpServers"], "./.mcp.json")
+        self.assertEqual(self._json(self.root, os.path.join("plugins", "dsail", ".mcp.json")),
+                         {"mcpServers": {"dsail": {"command": "dsail", "args": ["mcp"]}}})
         readme = self._text(self.root, os.path.join("plugins", "dsail", "README.md"))
         self.assertIn("/plugin marketplace add JaxonAI/dsail", readme)
         self.assertIn("/plugin install dsail@jaxon", readme)
         self.assertIn("codex plugin marketplace add", readme)
         self.assertNotIn(self.root, readme, "the README must not carry a build machine's path")
+
+    def test_a_pinned_url_reaches_the_claude_manifests_hosted_server(self):
+        scaffold.plugin_bundle(self.root, url="https://staging.example/")
+        manifest = self._json(self.root, os.path.join("plugins", "dsail", scaffold.CLAUDE_PLUGIN_MANIFEST_RELATIVE))
+        self.assertEqual(manifest["mcpServers"], {"dsail": {"type": "http", "url": "https://staging.example/mcp"}})
 
     def test_the_committed_bundle_is_what_the_package_generates(self):
         """The public repository's root IS the bundle; it must be regenerated with the version.

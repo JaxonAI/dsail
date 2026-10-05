@@ -80,14 +80,7 @@ URL of the page that resolves it — fetch it before retrying blind.
   all) means the CLI and the Python client ARE the path, not a fallback: the
   same operations, the same service, the same results. If `dsail` is not
   installed, `pip install dsail` first.
-- Review is a human step, and this client renders no widget. When a ruleset is
-  ready, call the `dsail_open_review` MCP tool (source, file path, or stored
-  name): it starts the review UI on this machine, opens the browser, and
-  returns a link — repeat that link to the user. Without MCP tools, give the
-  user the exact command `dsail serve policies/<name>.dsail` to run in their
-  own terminal; do not run it from a sandboxed shell, and never say a review
-  panel is open unless you have a link to show. Approval there is recorded on
-  the service against the exact hash.
+{review_guidance}
 - Integration code fetches the prompt pack, runs extraction on this project's
   own model and credentials, submits the claim dictionary with `dsail.Client`
   (`check_with_repair` handles validation failures), and acts on the
@@ -164,6 +157,36 @@ _PREAMBLE = (
     "attributed to the rules, and never as an overall verdict of your own."
 )
 
+# How review reaches a person. `dsail init` registers the stdio proxy, which is
+# the one process that can start the review UI on the user's machine, so its
+# skill sends every review there.
+_INIT_REVIEW = """- Review is a human step, and this client renders no widget. When a ruleset is
+  ready, call the `dsail_open_review` MCP tool (source, file path, or stored
+  name): it starts the review UI on this machine, opens the browser, and
+  returns a link — repeat that link to the user. Without MCP tools, give the
+  user the exact command `dsail serve policies/<name>.dsail` to run in their
+  own terminal; do not run it from a sandboxed shell, and never say a review
+  panel is open unless you have a link to show. Approval there is recorded on
+  the service against the exact hash."""
+
+# The plugin's Claude manifest connects to the hosted MCP endpoint (see
+# claude_mcp_servers), which has no `dsail_open_review`: only a process on the
+# user's machine can open their browser. claude.ai and Claude Desktop render
+# `dsail_review` as the inline widget; Claude Code does not, so there the
+# person runs `dsail serve` themselves.
+_PLUGIN_REVIEW = """- Review is a human step. If `dsail_open_review` is in your tool list (the
+  local `dsail mcp` proxy), call it with the source, file path or stored name:
+  it starts the review UI on this machine, opens the browser and returns a
+  link — repeat that link to the user. If it is not (this plugin connects
+  Claude Code, claude.ai and Cowork to the hosted server directly), call
+  `dsail_review` once after a successful compile: claude.ai and Claude Desktop
+  show it as an inline review widget. A client that renders no widget, such as
+  Claude Code, gets text only; say so, and give the user the exact command
+  `dsail serve policies/<name>.dsail` to run in their own terminal (after
+  `pip install dsail`). Never say a review panel is open unless one rendered or
+  a link came back. Approval is recorded on the service against the exact
+  hash."""
+
 # ------------------------------------------------------------- the Codex plugin
 
 PLUGIN_NAME = "dsail"
@@ -181,21 +204,27 @@ PUBLIC_REPOSITORY_SHORT = "JaxonAI/dsail"
 PLUGIN_KEYWORDS = ["dsail", "policy", "rules", "verification", "mcp", "claude-code", "codex"]
 _AUTHOR = {"name": "Jaxon, Inc.", "email": "info@jaxon.ai", "url": "https://jaxon.ai/"}
 
-_PLUGIN_README_TEMPLATE = """# DSAIL plugin — Claude Code and Codex
+# The hosted MCP door: the service's base URL plus this path (the registry
+# entry's `remotes` names the same URL).
+MCP_PATH = "/mcp"
+
+_PLUGIN_README_TEMPLATE = """# DSAIL plugin — Claude Code, claude.ai and Codex
+
+{directory_description}
 
 {lead}
 
-One installable carrying the DSAIL skill (the authoring sequence and grammar)
-and the `dsail` MCP server (the stdio proxy `dsail mcp`, forwarding to the
-hosted service over HTTPS) — and, for Codex, when built with `--app-id`, the
-ChatGPT connector. The same plugin directory is read by both marketplaces:
-`.claude-plugin/` for Claude Code, `.codex-plugin/` for Codex.
+One installable carrying the DSAIL skills (the authoring sequence and grammar,
+and two guides to the policy families it is most often used for) and the
+`dsail` MCP server. In Claude Code, claude.ai and Cowork the server is the
+hosted endpoint, {mcp_url}: nothing is installed, and the first use asks
+you to sign in with Google or GitHub. Codex runs the stdio proxy `dsail mcp`,
+which forwards to the same service over HTTPS. For Codex, when built with
+`--app-id`, the bundle also carries the ChatGPT connector. The same plugin
+directory is read by both marketplaces: `.claude-plugin/` for Claude Code,
+`.codex-plugin/` for Codex.
 
 ## Install
-
-```bash
-pip install dsail                 # the proxy the MCP entry launches
-```
 
 Claude Code, in a session:
 
@@ -204,22 +233,224 @@ Claude Code, in a session:
 /plugin install dsail@{marketplace}
 ```
 
-Codex:
+On claude.ai, add DSAIL from the plugin directory.
+
+Codex, which launches the proxy:
 
 ```bash
+pip install dsail                 # the proxy Codex's MCP entry launches
 codex plugin marketplace add {repo_url}
 ```
 
 Then `/plugins` in Codex CLI, or the plugin browser in the IDE extension or the
 ChatGPT desktop app: the three share one MCP configuration, so the server
 registers once and is visible in all three. In a repository, `dsail init`
-writes the same skill and server entry into the repo itself, which is what a
-Codex cloud task — no MCP layer — reads.
+writes the skill and the proxy's server entry into the repo itself, which is
+what a Codex cloud task — no MCP layer — reads. The review UI for a client that
+renders no widget comes from the same package: `dsail serve <file>`.
 
 Documentation for agents: {docs_url}
 
 <!-- generated by dsail {version}; wire contract {wire_version}; re-run `dsail plugin-bundle` to refresh -->
 """
+
+# The two domain skills the directory listing names (TJP-624). Each one's name
+# and description are quoted from phrasing.json's `directory_listing`; the
+# bodies are how that family of written rules maps onto DSAIL. Both example
+# rulesets compiled against the hosted service on 2026-10-04.
+_DOMAIN_SKILL_TEMPLATE = """---
+name: {name}
+description: {description}
+---
+
+{body}
+<!-- generated by dsail {version}; wire contract {wire_version}; re-run `dsail plugin-bundle` to refresh -->
+"""
+
+_DOMAIN_SKILL_BODIES = {
+    "dsail-regulated-industry-rules": """# Regulated-industry rules with DSAIL
+
+The written rules a regulated firm applies one case at a time: a compliance
+manual, a FINRA rulebook, a suitability standard, underwriting or claims
+guidelines, insurance policy wording, clinical criteria, a fee schedule, treaty
+terms. DSAIL turns them into a ruleset whose every result names the rule that
+decided, so the same facts get the same answer whoever is on the desk, and the
+basis for a decision can be shown to an examiner later.
+
+The `dsail` skill has the authoring sequence, the grammar and the integrity
+rule. Follow it. This skill is about how these policies map onto it.
+
+## Before writing any DSAIL
+
+- Restate the policy in plain English, rule by rule, and get the person's
+  confirmation. Name the manual section for each rule; it goes into the rule's
+  description comment, so the review and every result carry it.
+- DSAIL applies rules that are already written. Where the manual leaves a case
+  to judgement (a "reasonable" standard, an exception a supervisor may grant),
+  say so and leave that decision with the person. Do not invent a threshold.
+
+## How these rules usually look
+
+- **Caps and thresholds in money**: gift limits, fee breakpoints, deductibles,
+  surveillance thresholds. Declare the unit on the claim (`// @unit giftValue
+  USD`) and write it on every literal (`giftValue <= 100 "USD"`).
+- **Limits that depend on a category**: the recipient type, the account tier,
+  the coverage line, the territory. Declare the category as an enum and branch
+  with `CASE` or `IF`.
+- **Ordered tiers** such as risk ratings: an ordered enum
+  (`["low","medium","high"]`) compares with `<` and `>`.
+- **"At least N of the following"** (medical necessity, referral triggers,
+  enhanced due diligence): one boolean per criterion, counted with `If`.
+- **Running totals and look-backs** (gifts to the same recipient this calendar
+  year, trades in the last thirty days): DSAIL checks one case's claims and does
+  not aggregate history. Make the total a claim your system computes from its
+  records, and write the rule against the sum.
+- **One assert per written rule**, so a FALSE names the rule that blocked it.
+
+## Example
+
+```
+version 1.3;
+// @ask recipientType Who would receive the gift: a public official, a client, or a prospect the firm is pitching?
+declare recipientType as enum {"public_official","client","prospect"};
+// @ask giftValue What is the value of the proposed gift, in USD?
+// @unit giftValue USD
+// @range giftValue 0..1000000
+declare giftValue as numeric;
+// @ask priorGiftsThisYear What is the total value of gifts already given to this recipient this calendar year, in USD?
+// @unit priorGiftsThisYear USD
+// @range priorGiftsThisYear 0..1000000
+declare priorGiftsThisYear as numeric;
+// @ask meetsCriterionA Does the record show the first clinical criterion is met?
+declare meetsCriterionA as boolean;
+// @ask meetsCriterionB Does the record show the second clinical criterion is met?
+declare meetsCriterionB as boolean;
+// @ask meetsCriterionC Does the record show the third clinical criterion is met?
+declare meetsCriterionC as boolean;
+
+// Manual 4.1: no gift of any value to a public official.
+assert no_gifts_to_officials { recipientType != "public_official" };
+// Manual 4.2: gifts to one recipient may not exceed 100 USD in a calendar year.
+assert annual_gift_cap { priorGiftsThisYear + giftValue <= 100 "USD" };
+// Guideline 7: at least two of the three clinical criteria are met.
+assert two_of_three_criteria { If(meetsCriterionA, 1, 0) + If(meetsCriterionB, 1, 0) + If(meetsCriterionC, 1, 0) >= 2 };
+```
+
+The section numbers and amounts are illustrative; use the policy's own.
+
+## Checking, and keeping the record
+
+- Extract claim values with the prompt pack on the user's own model. A fact the
+  file does not state is "unknown", never a guess.
+- Save the ruleset under a name and record the accountable person's approval
+  against its hash. A later edit is a new revision and needs its own approval.
+  The hash, the claim dictionary and the results are the record of what was
+  decided, under which rules, on which facts.
+
+## Not this skill
+
+Routing a request to an approver or deciding who may act, scoring or ranking
+risk where no written rule says how, judgements the policy leaves to a person,
+and drafting or interpreting the policy itself.
+""",
+    "dsail-regulations-and-engineering-standards": """# Regulations and engineering standards with DSAIL
+
+Written regulations and internal standards applied one case at a time: a
+subcontract against FAR and DFARS flowdown clauses, a firm against NAICS size
+standards, a records request against FOIA exemptions, a document against a
+classification guide, a clearance case against adjudication guidelines, a
+voucher against per diem rates, an incident against a severity matrix, a change
+or a release against a written standard. DSAIL turns the written conditions
+into a ruleset and names, for every case, the provision or requirement that
+decided.
+
+The `dsail` skill has the authoring sequence, the grammar and the integrity
+rule. Follow it. This skill is about how these rules map onto it.
+
+## Before writing any DSAIL
+
+- Restate each provision in plain English with its citation (clause number,
+  section, matrix row) and get the person's confirmation. The citation goes into
+  the rule's description comment.
+- DSAIL applies what the text states. Where a regulation or standard leaves the
+  decision to an official (a whole-person judgement, a waiver, an "as
+  appropriate"), that part stays with them.
+
+## How these rules usually look
+
+- **Clause flowdown**: the subcontract's attributes are claims (value in USD,
+  contract type as an enum, commercial item as a boolean), plus one boolean per
+  clause present. One assert per clause, so a FALSE names the missing clause.
+- **Size standards and thresholds by code**: declare the code as an unordered
+  enum of the codes the policy lists and branch with `CASE`; receipts carry a
+  unit, headcount is a plain number.
+- **Exemptions and release decisions**: one boolean per exemption, answered by
+  extraction and "unknown" where the record is not clear. DSAIL applies what
+  the rule says follows; it does not judge whether a passage is sensitive.
+- **Classification and severity levels**: an ordered enum compares the level
+  applied with the level the guide or matrix requires.
+- **Rates and entitlements**: the rate for the place and dates is a claim (or
+  the policy's own table, written as a `CASE`); compare the amount claimed with
+  units on every literal.
+- **Engineering standards** (release, change freeze, on-call, reliability
+  policy, licence policy): the facts come from the change record, the incident,
+  the dependency list or the release ticket, and each written requirement is
+  one assert. DSAIL does not scan code, read configuration or compute figures
+  such as an error budget; the system that has the facts supplies them.
+
+## Example
+
+```
+version 1.3;
+// @ask touchesPaymentPaths Does the change touch payment code paths?
+declare touchesPaymentPaths as boolean;
+// @ask approverCount How many people approved the release?
+// @range approverCount 0..50
+declare approverCount as numeric;
+// @ask paymentsApprover Is at least one approver from the payments team?
+declare paymentsApprover as boolean;
+// @ask rollbackTested Has the rollback plan been tested?
+declare rollbackTested as boolean;
+// @ask subcontractValue What is the total value of the subcontract, in USD?
+// @unit subcontractValue USD
+// @range subcontractValue 0..10000000000
+declare subcontractValue as numeric;
+// @ask includesSmallBusinessPlanClause Does the subcontract include the small business subcontracting plan clause?
+declare includesSmallBusinessPlanClause as boolean;
+// @ask requiredLevel What classification level does the guide require for this content: unclassified, confidential, secret or top secret?
+declare requiredLevel as enum ["unclassified","confidential","secret","top_secret"];
+// @ask markedLevel What classification level is the document marked at: unclassified, confidential, secret or top secret?
+declare markedLevel as enum ["unclassified","confidential","secret","top_secret"];
+
+// Standard 2.1: every release needs at least one approver.
+assert has_approver { approverCount >= 1 };
+// Standard 3.1: a change to payment paths needs a second approver, and one from payments.
+assert payments_second_approver { IF touchesPaymentPaths THEN And(approverCount >= 2, paymentsApprover) ELSE True END };
+// Standard 3.2: a change to payment paths needs a tested rollback plan.
+assert payments_rollback_tested { Implies(touchesPaymentPaths, rollbackTested) };
+// Flowdown 4: a subcontract over 750,000 USD must carry the small business subcontracting plan clause.
+assert small_business_plan_flowdown { IF subcontractValue > 750000 "USD" THEN includesSmallBusinessPlanClause ELSE True END };
+// Guide 1.3: a document is marked at least at the level the guide requires for its content.
+assert marked_at_required_level { markedLevel >= requiredLevel };
+```
+
+The section numbers and amounts are illustrative; use the regulation's or the
+standard's own.
+
+## Checking, and keeping the record
+
+- Extract claim values with the prompt pack on the user's own model; a fact the
+  record does not state is "unknown", never a guess.
+- Save the ruleset and record the accountable person's approval against its
+  hash; a later edit is a new revision and needs its own approval.
+
+## Not this skill
+
+Deciding who may deploy, access or approve (that is access control), scanning
+code or configuration, computing figures, and interpreting an ambiguous
+regulation or drafting the standard.
+""",
+}
 
 
 def skill_description():
@@ -238,15 +469,75 @@ def skill_description():
     )
 
 
-def skill_markdown():
+def _frontmatter_scalar(text):
+    """``text`` as a YAML frontmatter value: as written when it reads as a
+    plain scalar, else double-quoted. A ``: `` or `` #`` inside a plain value
+    breaks the frontmatter, and the directory listing's descriptions carry
+    colons. A JSON string is a valid YAML double-quoted scalar."""
+    if ": " in text or " #" in text or text.endswith(":") or text[:1] in "!&*-?{}[]|>'\"%@`,#":
+        return json.dumps(text, ensure_ascii=False)
+    return text
+
+
+def skill_markdown(description=None, review=None):
+    """The skill file. ``dsail init`` writes the default; the plugin bundle
+    passes the directory listing's description and the review guidance for a
+    client connected to the hosted server (:func:`plugin_skill_markdown`)."""
     authoring = contract.authoring()
     return _SKILL_TEMPLATE.format(
-        skill_description=skill_description(),
+        skill_description=_frontmatter_scalar(description or skill_description()),
+        review_guidance=review or _INIT_REVIEW,
         docs_url=contract.docs_url(),
         preamble=_PREAMBLE,
         authoring_sequence=authoring["authoring_sequence"].rstrip(),
         grammar_guide=authoring["grammar_guide"].rstrip(),
         integrity_rule=authoring["integrity_rule"].strip(),
+        version=__version__,
+        wire_version=contract.versions().get("wire_version", "?"),
+    )
+
+
+def directory_listing():
+    """The Claude plugin's listing in Anthropic's directory (TJP-624).
+
+    Quoted from the bundled phrasing file: ``display_name``, ``description``,
+    ``skill_description`` and ``domain_skills``. Only the Claude manifest, its
+    marketplace entry and the plugin's skills use it; every other surface keeps
+    the lead. phrasing.json's ``_about_directory_listing`` says why it reads as
+    it does.
+    """
+    return contract.phrasing()["directory_listing"]
+
+
+def remote_mcp_url(url=None):
+    """The hosted MCP door: ``url`` (a pinned service) or the API URL, plus ``/mcp``."""
+    return (url or contract.phrasing()["api_url"]).rstrip("/") + MCP_PATH
+
+
+def claude_mcp_servers(url=None):
+    """The Claude manifest's server: the hosted endpoint, by the proxy's name.
+
+    claude.ai ignores a plugin's local (stdio) servers, so a plugin added from
+    the directory needs a remote one. Claude Code loads the plugin's
+    ``.mcp.json`` first and then the manifest's declarations, a later name
+    replacing an earlier one, so declaring ``dsail`` here replaces the stdio
+    proxy for Claude while Codex, which reads only ``.mcp.json``, keeps it.
+    """
+    return {PLUGIN_NAME: {"type": "http", "url": remote_mcp_url(url)}}
+
+
+def plugin_skill_markdown():
+    """The plugin's main skill: the ``dsail init`` skill with the directory
+    listing's description and review guidance for the hosted server."""
+    return skill_markdown(description=directory_listing()["skill_description"], review=_PLUGIN_REVIEW)
+
+
+def domain_skill_markdown(skill):
+    """One of the listing's domain skills, ``{"name", "description"}``."""
+    return _DOMAIN_SKILL_TEMPLATE.format(
+        name=skill["name"],
+        description=_frontmatter_scalar(skill["description"]),
+        body=_DOMAIN_SKILL_BODIES[skill["name"]].rstrip() + "\n",
         version=__version__,
         wire_version=contract.versions().get("wire_version", "?"),
     )
@@ -443,25 +734,28 @@ def marketplace_json(plugin_relative_path):
     }
 
 
-def claude_plugin_manifest():
-    """``.claude-plugin/plugin.json``: the shape the Claude Code marketplace reads.
+def claude_plugin_manifest(url=None):
+    """``.claude-plugin/plugin.json``: the shape Claude Code and Anthropic's directory read.
 
-    The same facts as the Codex manifest — name, version, the lead as the
-    description, the docs URL, the public repository — in the field set Claude
-    Code's plugin reference defines. ``skills`` and ``mcpServers`` point at the
-    same files Codex reads.
+    Name, version, the docs URL and the public repository as in the Codex
+    manifest; the display name and description from the directory listing,
+    which is what claude.ai's ``search_plugins`` matches and what an agent reads
+    in its results; and the hosted MCP server (:func:`claude_mcp_servers`).
+    ``skills`` points at the same directory Codex reads.
     """
+    listing = directory_listing()
     return {
         "name": PLUGIN_NAME,
+        "displayName": listing["display_name"],
         "version": __version__,
-        "description": contract.phrasing()["lead"],
+        "description": listing["description"],
         "author": dict(_AUTHOR),
         "homepage": contract.docs_url(),
         "repository": PUBLIC_REPOSITORY,
         "license": "Apache-2.0",
         "keywords": list(PLUGIN_KEYWORDS),
         "skills": "./skills/",
-        "mcpServers": "./.mcp.json",
+        "mcpServers": claude_mcp_servers(url),
     }
 
 
@@ -475,6 +769,7 @@ def claude_marketplace_json(plugin_relative_path):
     """
     phrasing = contract.phrasing()
     docs_url = contract.docs_url()
+    listing = directory_listing()
     return {
         "name": MARKETPLACE_NAME,
         "owner": dict(_AUTHOR),
@@ -484,8 +779,8 @@ def claude_marketplace_json(plugin_relative_path):
             {
                 "name": PLUGIN_NAME,
                 "source": plugin_relative_path,
-                "displayName": "DSAIL",
-                "description": phrasing["lead"],
+                "displayName": listing["display_name"],
+                "description": listing["description"],
                 "version": __version__,
                 "author": dict(_AUTHOR),
                 "homepage": docs_url,
@@ -517,6 +812,7 @@ def codex_plugin(root, url=None, app_id=None):
         <root>/plugins/dsail/.mcp.json
         <root>/plugins/dsail/.app.json            (only with app_id)
         <root>/plugins/dsail/skills/dsail/SKILL.md
+        <root>/plugins/dsail/skills/<domain skill>/SKILL.md   (one per directory_listing domain skill)
         <root>/plugins/dsail/README.md
 
     Returns ``{relative path: created|updated|unchanged}``.
@@ -536,10 +832,14 @@ def codex_plugin(root, url=None, app_id=None):
     elif os.path.exists(app_path):
         os.remove(app_path)
         outcomes[os.path.join(plugin_dir, ".app.json")] = "removed"
-    write(os.path.join(plugin_dir, "skills", "dsail", "SKILL.md"), skill_markdown())
+    write(os.path.join(plugin_dir, "skills", "dsail", "SKILL.md"), plugin_skill_markdown())
+    for skill in directory_listing()["domain_skills"]:
+        write(os.path.join(plugin_dir, "skills", skill["name"], "SKILL.md"), domain_skill_markdown(skill))
     write(
         os.path.join(plugin_dir, "README.md"),
         _PLUGIN_README_TEMPLATE.format(
+            directory_description=directory_listing()["description"],
+            mcp_url=remote_mcp_url(url),
             lead=contract.phrasing()["lead"],
             repo_short=PUBLIC_REPOSITORY_SHORT,
             repo_url=PUBLIC_REPOSITORY,
@@ -572,6 +872,6 @@ def plugin_bundle(root, url=None, app_id=None):
     )
     outcomes[os.path.join(plugin_dir, CLAUDE_PLUGIN_MANIFEST_RELATIVE)] = _write_if_changed(
         os.path.join(root, plugin_dir, CLAUDE_PLUGIN_MANIFEST_RELATIVE),
-        _dump(claude_plugin_manifest()),
+        _dump(claude_plugin_manifest(url)),
     )
     return outcomes

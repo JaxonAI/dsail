@@ -16,7 +16,33 @@
     "vocabulary": "legal/vocabulary.md"
   },
   "lead": "Turn a written policy into rules a program can check, and get the same answer every time.",
-  "architecture": "rules compiled from the written policy, addressed by a content hash so a check run months later evaluates the exact bytes a person approved, the same answer every time, every result names the rule that decided, and your model extracts and never decides",
+  "_about_directory_listing": [
+    "The Claude plugin's listing in Anthropic's directory (TJP-624), where claude.ai's search_plugins",
+    "matches an agent's keywords as phrases against the display name, this description and each skill's",
+    "description, and an agent reading the results decides from the name and description alone. Chosen",
+    "by measurement on 2026-10-03 (sell-to-robots listing-copy/calibration/2026-10-01-search-plugins):",
+    "held-out agent keyword sets reaching the top ten rose from 4 of 72 to 44 of 72, and, with this exact",
+    "name and description, wrong offers on near-miss jobs fell from 23 of 40 to 5 of 40 while right jobs",
+    "were offered DSAIL 40 of 40 times. The last sentence of the description is a boundary",
+    "worded without the phrases agents search with, because the search cannot read a negation. Only the",
+    "Claude plugin manifest and its marketplace entry use this block; every other surface keeps the lead."
+  ],
+  "directory_listing": {
+    "display_name": "DSAIL: Decision Rules from Written Policy",
+    "description": "Check documents and AI output against written policy. DSAIL turns a written policy, like a compliance manual, filed rating rules, insurance policy wording or a release standard, into a ruleset and records the rule behind every result. Use it for policy compliance, eligibility, rating and claims checks. It applies the rules a policy already states; it does not decide who may act or who signs off.",
+    "skill_description": "Check documents, decisions and AI output against a written policy, and get the same answer every time. Use when asked to enforce, check or encode a policy, rule, threshold or compliance requirement against facts extracted from documents, as a policy rules engine or as decision rules compiled from the policy text: policy compliance and regulatory compliance checks, compliance policy evaluation and compliance checklists with a decision audit trail, contract compliance and trade compliance, gifts and entertainment pre-clearance, adverse action reasons, fee schedules, KYC and AML rules, suitability, underwriting eligibility, insurance rating rules and claims adjudication, medical necessity criteria, export control and clause flowdown, open source license policy, release gates and change freeze rules, records retention schedules. Every result names the rule that decided, and the check runs on the hosted DSAIL service with no model in the loop.",
+    "domain_skills": [
+      {
+        "name": "dsail-regulated-industry-rules",
+        "description": "Apply a firm's written rules the same way to every case: trade surveillance thresholds, order routing policy, FINRA rulebook reviews and disclosure rules, suitability standards, customer due diligence and risk rating rules, fee schedules, insurance policy wording for coverage and claims, catastrophe deductibles, medical necessity and clinical guidelines, treaty cession terms and referral rules. Each result cites the rule that decided, for an examiner or an auditor."
+      },
+      {
+        "name": "dsail-regulations-and-engineering-standards",
+        "description": "Apply written regulations and engineering standards consistently: FAR and DFARS clause flowdown, NAICS size standards, state regulations, FOIA and public records requests, derivative classification guidance, security clearance adjudication guidelines, per diem rates, reliability policy, incident severity classification, on-call policy, change management and change freeze policy. Each determination names the provision or requirement that decided."
+      }
+    ]
+  },
+  "architecture":"rules compiled from the written policy, addressed by a content hash so a check run months later evaluates the exact bytes a person approved, the same answer every time, every result names the rule that decided, and your model extracts and never decides",
   "trigger_phrases": {
     "policy_to_rules": "turn a written policy into rules a program can check",
     "same_answer": "the same answer every time",
