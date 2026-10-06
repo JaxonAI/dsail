@@ -2403,7 +2403,7 @@
                 }
               }
             },
-            "description": "ENTITLEMENT_EXCEEDED: the account's check allowance for this period is used up. The error carries `tier`, `used`, `limit_value`, `period` and `upgrade_url`."
+            "description": "ENTITLEMENT_EXCEEDED: the account's check allowance for this period is used up. The error carries `tier`, `used`, `limit_value`, `period` and `plans_url`, the page that describes the plans."
           },
           "404": {
             "content": {

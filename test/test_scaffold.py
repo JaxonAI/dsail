@@ -308,6 +308,14 @@ class PluginBundleTests(unittest.TestCase):
         self.assertEqual(manifest["description"], listing["description"])
         self.assertEqual(manifest["skills"], "./skills/")
         self.assertEqual(manifest["mcpServers"], hosted)
+        # The links Anthropic's directory shows on the listing: the product page
+        # as the homepage, and documentation, support and legal pages on the docs site.
+        docs = contract.docs_url()
+        self.assertEqual(manifest["homepage"], scaffold.PRODUCT_URL)
+        self.assertEqual(manifest["documentationUrl"], docs)
+        self.assertEqual(manifest["supportUrl"], docs + "/support.md")
+        self.assertEqual(manifest["privacyPolicyUrl"], docs + "/legal/privacy.md")
+        self.assertEqual(manifest["termsOfServiceUrl"], docs + "/legal/terms.md")
 
         # The Codex half keeps the lead and the stdio proxy.
         codex = self._json(self.root, os.path.join("plugins", "dsail", scaffold.PLUGIN_MANIFEST_RELATIVE))

@@ -201,6 +201,10 @@ CLAUDE_PLUGIN_MANIFEST_RELATIVE = os.path.join(".claude-plugin", "plugin.json")
 CLAUDE_MARKETPLACE_RELATIVE = os.path.join(".claude-plugin", "marketplace.json")
 MARKETPLACE_NAME = "jaxon"
 PUBLIC_REPOSITORY = "https://github.com/JaxonAI/dsail"
+# The product page people land on from a listing; the docs site is for agents
+# and carries the documentation, support and legal links.
+PRODUCT_URL = "https://jaxon.ai/dsail/"
+SUPPORT_PAGE = "support.md"
 _KEYWORDS = ["dsail", "policy", "rules", "verification", "mcp"]
 CLAUDE_PLUGIN_KEYWORDS = _KEYWORDS + ["claude-code"]
 CODEX_PLUGIN_KEYWORDS = _KEYWORDS + ["codex"]
@@ -718,16 +722,24 @@ def claude_plugin_manifest(url=None):
     manifest; the display name and description from the directory listing,
     which is what claude.ai's ``search_plugins`` matches and what an agent reads
     in its results; and the hosted MCP server (:func:`claude_mcp_servers`).
-    ``skills`` points at the same directory Codex reads.
+    ``skills`` points at the same directory Codex reads. The homepage is the
+    product page; the four link fields Anthropic's directory reads for the
+    listing (and Claude Code ignores) point into the docs site.
     """
     listing = directory_listing()
+    docs_url = contract.docs_url()
+    legal = contract.phrasing()["legal"]
     return {
         "name": PLUGIN_NAME,
         "displayName": listing["display_name"],
         "version": __version__,
         "description": listing["description"],
         "author": dict(_AUTHOR),
-        "homepage": contract.docs_url(),
+        "homepage": PRODUCT_URL,
+        "documentationUrl": docs_url,
+        "supportUrl": "%s/%s" % (docs_url, SUPPORT_PAGE),
+        "privacyPolicyUrl": "%s/%s" % (docs_url, legal["privacy"]),
+        "termsOfServiceUrl": "%s/%s" % (docs_url, legal["terms"]),
         "repository": PUBLIC_REPOSITORY,
         "license": "Apache-2.0",
         "keywords": list(CLAUDE_PLUGIN_KEYWORDS),
