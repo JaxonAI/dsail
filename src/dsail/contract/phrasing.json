@@ -19,16 +19,21 @@
   "_about_directory_listing": [
     "The Claude plugin's listing in Anthropic's directory (TJP-624), where claude.ai's search_plugins",
     "matches an agent's keywords as phrases against the display name, this description and each skill's",
-    "description, and an agent reading the results decides from the name and description alone. Chosen",
-    "by measurement on 2026-10-03 (sell-to-robots listing-copy/calibration/2026-10-01-search-plugins):",
-    "held-out agent keyword sets reaching the top ten rose from 4 of 72 to 44 of 72, and, with this exact",
-    "name and description, wrong offers on near-miss jobs fell from 23 of 40 to 5 of 40 while right jobs",
-    "were offered DSAIL 40 of 40 times. The last sentence of the description is a boundary",
-    "worded without the phrases agents search with, because the search cannot read a negation. Only the",
-    "Claude plugin manifest and its marketplace entry use this block; every other surface keeps the lead."
+    "description, and an agent reading the results decides from the name and description alone. The",
+    "description and skills were chosen by measurement on 2026-10-03 (sell-to-robots",
+    "listing-copy/calibration/2026-10-01-search-plugins): with them and the earlier name, wrong offers on",
+    "near-miss jobs fell from 23 of 40 to 5 of 40 while right jobs were offered DSAIL 40 of 40 times.",
+    "Live on 2026-10-05 (1.0.4), held-out agent keyword sets reaching the top ten rose from 4 of 72 to 14",
+    "of 70, and a keyword matching the display name decided it: every set carrying one put DSAIL in the",
+    "top five, and no other set put it above sixth. So the display name carries \"rules engine\", which",
+    "agents passed in 12 right-job sets and in no near-miss or unrelated set (predicted: 25 of 72). The",
+    "last sentence of the description is a boundary worded without the phrases agents search with,",
+    "because the search cannot read a negation; it is also what answers an agent that arrives with OPA's",
+    "or Cedar's vocabulary. Only the Claude plugin manifest and its marketplace entry use this block;",
+    "every other surface keeps the lead."
   ],
   "directory_listing": {
-    "display_name": "DSAIL: Decision Rules from Written Policy",
+    "display_name": "DSAIL: Rules Engine for Written Policy",
     "description": "Check documents and AI output against written policy. DSAIL turns a written policy, like a compliance manual, filed rating rules, insurance policy wording or a release standard, into a ruleset and records the rule behind every result. Use it for policy compliance, eligibility, rating and claims checks. It applies the rules a policy already states; it does not decide who may act or who signs off.",
     "skill_description": "Check documents, decisions and AI output against a written policy, and get the same answer every time. Use when asked to enforce, check or encode a policy, rule, threshold or compliance requirement against facts extracted from documents, as a policy rules engine or as decision rules compiled from the policy text: policy compliance and regulatory compliance checks, compliance policy evaluation and compliance checklists with a decision audit trail, contract compliance and trade compliance, gifts and entertainment pre-clearance, adverse action reasons, fee schedules, KYC and AML rules, suitability, underwriting eligibility, insurance rating rules and claims adjudication, medical necessity criteria, export control and clause flowdown, open source license policy, release gates and change freeze rules, records retention schedules. Every result names the rule that decided, and the check runs on the hosted DSAIL service with no model in the loop.",
     "domain_skills": [
@@ -76,7 +81,7 @@
     "audit": "A weak discriminator on two independent measurements (TJP-646): it appears about as often on hard-negative prompts as on positives, and the claude.ai catalog returns ten unrelated results for it. Use it in a sentence, never as a lead or a title.",
     "compliance": "Contested, not open: Vanta already sits on it in the claude.ai catalog. A page may say it; nothing leads with it.",
     "guardrails": "Names a different need (output filtering, jailbreak defence). Use it only on the comparison page, by name.",
-    "policy engine / rules engine": "Zero catalog results (TJP-646) so the phrase is open, but it is the by-name vocabulary of OPA and Cedar. Use it on the comparison pages, where an agent arrives with that name, and nowhere as our own description."
+    "policy engine / rules engine": "Zero catalog results (TJP-646) so the phrase is open, but it is the by-name vocabulary of OPA and Cedar. Use it on the comparison pages, where an agent arrives with that name, and nowhere as our own description, with one measured exception: the Claude directory listing's display name carries \"rules engine\", because a keyword matching the display name is what puts a listing in front of an agent there (see _about_directory_listing)."
   },
   "tools": {
     "dsail_compile": "Turn a written policy into rules a program can check.",

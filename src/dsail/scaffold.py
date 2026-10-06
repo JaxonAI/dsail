@@ -76,10 +76,10 @@ URL of the page that resolves it — fetch it before retrying blind.
       dsail check --hash <ruleset_hash> --claims claims.json
       dsail serve policies/<name>.dsail             # review UI at a localhost link
 
-- No `dsail_*` tools in this session (a Codex cloud task has no MCP layer at
-  all) means the CLI and the Python client ARE the path, not a fallback: the
-  same operations, the same service, the same results. If `dsail` is not
-  installed, `pip install dsail` first.
+- No `dsail_*` tools in this session (a cloud coding task, for one, has
+  no MCP layer at all) means the CLI and the Python client ARE the path, not a
+  fallback: the same operations, the same service, the same results. If
+  `dsail` is not installed, `pip install dsail` first.
 {review_guidance}
 - Integration code fetches the prompt pack, runs extraction on this project's
   own model and credentials, submits the claim dictionary with `dsail.Client`
@@ -173,15 +173,15 @@ _INIT_REVIEW = """- Review is a human step, and this client renders no widget. W
 # claude_mcp_servers), which has no `dsail_open_review`: only a process on the
 # user's machine can open their browser. claude.ai and Claude Desktop render
 # `dsail_review` as the inline widget; Claude Code does not, so there the
-# person runs `dsail serve` themselves.
+# person runs `dsail serve` themselves. One skill serves both marketplaces, so
+# it describes the two kinds of client rather than naming either ecosystem's.
 _PLUGIN_REVIEW = """- Review is a human step. If `dsail_open_review` is in your tool list (the
   local `dsail mcp` proxy), call it with the source, file path or stored name:
   it starts the review UI on this machine, opens the browser and returns a
-  link — repeat that link to the user. If it is not (this plugin connects
-  Claude Code, claude.ai and Cowork to the hosted server directly), call
-  `dsail_review` once after a successful compile: claude.ai and Claude Desktop
-  show it as an inline review widget. A client that renders no widget, such as
-  Claude Code, gets text only; say so, and give the user the exact command
+  link — repeat that link to the user. If it is not (the hosted server), call
+  `dsail_review` once after a successful compile: a client that renders it
+  shows an inline review widget. A client that renders no widget gets text
+  only; say so, and give the user the exact command
   `dsail serve policies/<name>.dsail` to run in their own terminal (after
   `pip install dsail`). Never say a review panel is open unless one rendered or
   a link came back. Approval is recorded on the service against the exact
@@ -194,62 +194,39 @@ PLUGIN_MANIFEST_RELATIVE = os.path.join(".codex-plugin", "plugin.json")
 PLUGIN_MARKETPLACE_RELATIVE = os.path.join(".agents", "plugins", "marketplace.json")
 # The Claude Code half of the same plugin directory (TJP-624): a marketplace
 # manifest at the repository root and a plugin manifest beside Codex's. One
-# plugin directory serves both ecosystems because the skill, the MCP entry and
-# the README are the same bytes for both; only the manifest each reads differs.
+# plugin directory serves both ecosystems: the skills and the README are the
+# same bytes for both and name neither ecosystem's clients, because each
+# marketplace shows them on its listing; only the manifest each reads differs.
 CLAUDE_PLUGIN_MANIFEST_RELATIVE = os.path.join(".claude-plugin", "plugin.json")
 CLAUDE_MARKETPLACE_RELATIVE = os.path.join(".claude-plugin", "marketplace.json")
 MARKETPLACE_NAME = "jaxon"
 PUBLIC_REPOSITORY = "https://github.com/JaxonAI/dsail"
-PUBLIC_REPOSITORY_SHORT = "JaxonAI/dsail"
-PLUGIN_KEYWORDS = ["dsail", "policy", "rules", "verification", "mcp", "claude-code", "codex"]
+_KEYWORDS = ["dsail", "policy", "rules", "verification", "mcp"]
+CLAUDE_PLUGIN_KEYWORDS = _KEYWORDS + ["claude-code"]
+CODEX_PLUGIN_KEYWORDS = _KEYWORDS + ["codex"]
 _AUTHOR = {"name": "Jaxon, Inc.", "email": "info@jaxon.ai", "url": "https://jaxon.ai/"}
 
 # The hosted MCP door: the service's base URL plus this path (the registry
 # entry's `remotes` names the same URL).
 MCP_PATH = "/mcp"
 
-_PLUGIN_README_TEMPLATE = """# DSAIL plugin — Claude Code, claude.ai and Codex
+_PLUGIN_README_TEMPLATE = """# DSAIL plugin
 
 {directory_description}
 
 {lead}
 
-One installable carrying the DSAIL skills (the authoring sequence and grammar,
-and two guides to the policy families it is most often used for) and the
-`dsail` MCP server. In Claude Code, claude.ai and Cowork the server is the
-hosted endpoint, {mcp_url}: nothing is installed, and the first use asks
-you to sign in with Google or GitHub. Codex runs the stdio proxy `dsail mcp`,
-which forwards to the same service over HTTPS. For Codex, when built with
-`--app-id`, the bundle also carries the ChatGPT connector. The same plugin
-directory is read by both marketplaces: `.claude-plugin/` for Claude Code,
-`.codex-plugin/` for Codex.
+The plugin carries the DSAIL skills (the authoring sequence and grammar, and
+two guides to the policy families it is most often used for) and the `dsail`
+MCP server. The server is the hosted DSAIL service at {mcp_url}, which asks you
+to sign in with Google or GitHub on first use. A client that runs local
+servers launches the `dsail mcp` proxy from the `dsail` Python package instead,
+which forwards to the same service over HTTPS. The service receives the policy
+you compile, the values you check against it and the rulesets and approvals you
+save; your documents stay with your own model, which does the extraction.
 
-## Install
-
-Claude Code, in a session:
-
-```text
-/plugin marketplace add {repo_short}
-/plugin install dsail@{marketplace}
-```
-
-On claude.ai, add DSAIL from the plugin directory.
-
-Codex, which launches the proxy:
-
-```bash
-pip install dsail                 # the proxy Codex's MCP entry launches
-codex plugin marketplace add {repo_url}
-```
-
-Then `/plugins` in Codex CLI, or the plugin browser in the IDE extension or the
-ChatGPT desktop app: the three share one MCP configuration, so the server
-registers once and is visible in all three. In a repository, `dsail init`
-writes the skill and the proxy's server entry into the repo itself, which is
-what a Codex cloud task — no MCP layer — reads. The review UI for a client that
-renders no widget comes from the same package: `dsail serve <file>`.
-
-Documentation for agents: {docs_url}
+Setup for each client is in the quickstarts at {docs_url}, where every page is
+also served as markdown for agents.
 
 <!-- generated by dsail {version}; wire contract {wire_version}; re-run `dsail plugin-bundle` to refresh -->
 """
@@ -674,7 +651,7 @@ def plugin_manifest(app_id=None):
         "homepage": docs_url,
         "repository": PUBLIC_REPOSITORY,
         "license": "Apache-2.0",
-        "keywords": list(PLUGIN_KEYWORDS),
+        "keywords": list(CODEX_PLUGIN_KEYWORDS),
         "skills": "./skills/",
         "mcpServers": "./.mcp.json",
         "interface": {
@@ -753,7 +730,7 @@ def claude_plugin_manifest(url=None):
         "homepage": contract.docs_url(),
         "repository": PUBLIC_REPOSITORY,
         "license": "Apache-2.0",
-        "keywords": list(PLUGIN_KEYWORDS),
+        "keywords": list(CLAUDE_PLUGIN_KEYWORDS),
         "skills": "./skills/",
         "mcpServers": claude_mcp_servers(url),
     }
@@ -786,7 +763,7 @@ def claude_marketplace_json(plugin_relative_path):
                 "homepage": docs_url,
                 "repository": PUBLIC_REPOSITORY,
                 "license": "Apache-2.0",
-                "keywords": list(PLUGIN_KEYWORDS),
+                "keywords": list(CLAUDE_PLUGIN_KEYWORDS),
                 "category": "developer-tools",
                 "tags": [
                     phrasing["trigger_phrases"]["policy_to_rules"],
@@ -841,9 +818,6 @@ def codex_plugin(root, url=None, app_id=None):
             directory_description=directory_listing()["description"],
             mcp_url=remote_mcp_url(url),
             lead=contract.phrasing()["lead"],
-            repo_short=PUBLIC_REPOSITORY_SHORT,
-            repo_url=PUBLIC_REPOSITORY,
-            marketplace=MARKETPLACE_NAME,
             docs_url=contract.docs_url(),
             version=__version__,
             wire_version=contract.versions().get("wire_version", "?"),

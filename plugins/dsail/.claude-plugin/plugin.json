@@ -5,7 +5,7 @@
     "url": "https://jaxon.ai/"
   },
   "description": "Check documents and AI output against written policy. DSAIL turns a written policy, like a compliance manual, filed rating rules, insurance policy wording or a release standard, into a ruleset and records the rule behind every result. Use it for policy compliance, eligibility, rating and claims checks. It applies the rules a policy already states; it does not decide who may act or who signs off.",
-  "displayName": "DSAIL: Decision Rules from Written Policy",
+  "displayName": "DSAIL: Rules Engine for Written Policy",
   "homepage": "https://docs.agents.jaxon.ai",
   "keywords": [
     "dsail",
@@ -13,8 +13,7 @@
     "rules",
     "verification",
     "mcp",
-    "claude-code",
-    "codex"
+    "claude-code"
   ],
   "license": "Apache-2.0",
   "mcpServers": {
@@ -26,5 +25,5 @@
   "name": "dsail",
   "repository": "https://github.com/JaxonAI/dsail",
   "skills": "./skills/",
-  "version": "1.0.4"
+  "version": "1.0.5"
 }

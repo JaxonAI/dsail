@@ -32,7 +32,6 @@
     "rules",
     "verification",
     "mcp",
-    "claude-code",
     "codex"
   ],
   "license": "Apache-2.0",
@@ -40,5 +39,5 @@
   "name": "dsail",
   "repository": "https://github.com/JaxonAI/dsail",
   "skills": "./skills/",
-  "version": "1.0.4"
+  "version": "1.0.5"
 }

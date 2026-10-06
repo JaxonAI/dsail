@@ -227,7 +227,7 @@ class CodexPluginTests(unittest.TestCase):
         readme = self._text(os.path.join("plugins", "dsail", "README.md"))
         self.assertIn(contract.phrasing()["lead"], readme)
         self.assertIn(listing["description"], readme)
-        self.assertIn("codex plugin marketplace add", readme)
+        self.assertIn(contract.docs_url(), readme)
 
     def test_the_init_skill_is_unchanged_by_the_directory_listing(self):
         """`dsail init` registers the stdio proxy, so its skill keeps the lead
@@ -317,10 +317,26 @@ class PluginBundleTests(unittest.TestCase):
         self.assertEqual(self._json(self.root, os.path.join("plugins", "dsail", ".mcp.json")),
                          {"mcpServers": {"dsail": {"command": "dsail", "args": ["mcp"]}}})
         readme = self._text(self.root, os.path.join("plugins", "dsail", "README.md"))
-        self.assertIn("/plugin marketplace add JaxonAI/dsail", readme)
-        self.assertIn("/plugin install dsail@jaxon", readme)
-        self.assertIn("codex plugin marketplace add", readme)
         self.assertNotIn(self.root, readme, "the README must not carry a build machine's path")
+
+        # Each manifest's keywords name its own ecosystem only.
+        self.assertNotIn("codex", manifest["keywords"])
+        self.assertNotIn("codex", entry["keywords"])
+        self.assertNotIn("claude-code", codex["keywords"])
+
+    def test_what_both_marketplaces_show_names_neither_client(self):
+        """Both marketplaces list the one plugin directory, README and skills
+        included (claude.ai's Contents tab renders them), so the shared text
+        describes kinds of client and names neither ecosystem's."""
+        scaffold.plugin_bundle(self.root)
+        shared = [os.path.join("plugins", "dsail", "README.md")] + [
+            relative for relative in BUNDLE_FILES if relative.endswith("SKILL.md")
+        ]
+        for relative in shared:
+            with self.subTest(file=relative):
+                text = self._text(self.root, relative).lower()
+                for client in ("codex", "claude", "chatgpt", "cowork"):
+                    self.assertNotIn(client, text)
 
     def test_a_pinned_url_reaches_the_claude_manifests_hosted_server(self):
         scaffold.plugin_bundle(self.root, url="https://staging.example/")
