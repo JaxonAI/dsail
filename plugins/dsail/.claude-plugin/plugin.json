@@ -29,5 +29,5 @@
   "skills": "./skills/",
   "supportUrl": "https://docs.agents.jaxon.ai/support.md",
   "termsOfServiceUrl": "https://docs.agents.jaxon.ai/legal/terms.md",
-  "version": "1.0.6"
+  "version": "1.0.7"
 }

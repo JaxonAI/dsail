@@ -39,5 +39,5 @@
   "name": "dsail",
   "repository": "https://github.com/JaxonAI/dsail",
   "skills": "./skills/",
-  "version": "1.0.6"
+  "version": "1.0.7"
 }

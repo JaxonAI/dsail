@@ -76,7 +76,7 @@ URL of the page that resolves it — fetch it before retrying blind.
       dsail check --hash <ruleset_hash> --claims claims.json
       dsail serve policies/<name>.dsail             # review UI at a localhost link
 
-- No `dsail_*` tools in this session (a cloud coding task, for one, has
+{connection_guidance}- No `dsail_*` tools in this session (a cloud coding task, for one, has
   no MCP layer at all) means the CLI and the Python client ARE the path, not a
   fallback: the same operations, the same service, the same results. If
   `dsail` is not installed, `pip install dsail` first.
@@ -175,6 +175,24 @@ _INIT_REVIEW = """- Review is a human step, and this client renders no widget. W
 # `dsail_review` as the inline widget; Claude Code does not, so there the
 # person runs `dsail serve` themselves. One skill serves both marketplaces, so
 # it describes the two kinds of client rather than naming either ecosystem's.
+# A plugin added from a directory installs its skills at once, but its connector
+# is a separate step: each person connects it and signs in. Until they do, the
+# skill loads with no `dsail_*` tools, and the CLI fallback below it is advice
+# for a coding environment, not for a chat app (TJP-624, 2026-10-07: people
+# added the plugin and never connected it). Names no client, like the rest of
+# the bundle.
+_PLUGIN_CONNECTION = """- In a chat app, where there is no terminal, no `dsail_*` tools means this
+  plugin's DSAIL connector has not been connected yet: the skills are
+  installed, but nothing can be compiled or checked until it is. Tell the
+  person how to connect it: open this plugin in the app's plugin settings, go
+  to its Connectors tab, choose Connect next to DSAIL and sign in (signing in
+  the first time creates their account), then continue, or start a new chat if
+  the tools still do not appear. If Connect is not offered, an administrator
+  of their organization may need to allow the connector. Do not suggest the
+  CLI or `pip install` there. You may draft the policy summary and the DSAIL
+  source meanwhile, saying plainly that nothing has been compiled or checked.
+"""
+
 _PLUGIN_REVIEW = """- Review is a human step. If `dsail_open_review` is in your tool list (the
   local `dsail mcp` proxy), call it with the source, file path or stored name:
   it starts the review UI on this machine, opens the browser and returns a
@@ -460,14 +478,16 @@ def _frontmatter_scalar(text):
     return text
 
 
-def skill_markdown(description=None, review=None):
+def skill_markdown(description=None, review=None, connection=None):
     """The skill file. ``dsail init`` writes the default; the plugin bundle
-    passes the directory listing's description and the review guidance for a
-    client connected to the hosted server (:func:`plugin_skill_markdown`)."""
+    passes the directory listing's description, the review guidance for a
+    client connected to the hosted server, and what to do in a chat app whose
+    connector is not connected yet (:func:`plugin_skill_markdown`)."""
     authoring = contract.authoring()
     return _SKILL_TEMPLATE.format(
         skill_description=_frontmatter_scalar(description or skill_description()),
         review_guidance=review or _INIT_REVIEW,
+        connection_guidance=connection or "",
         docs_url=contract.docs_url(),
         preamble=_PREAMBLE,
         authoring_sequence=authoring["authoring_sequence"].rstrip(),
@@ -510,7 +530,8 @@ def claude_mcp_servers(url=None):
 def plugin_skill_markdown():
     """The plugin's main skill: the ``dsail init`` skill with the directory
     listing's description and review guidance for the hosted server."""
-    return skill_markdown(description=directory_listing()["skill_description"], review=_PLUGIN_REVIEW)
+    return skill_markdown(description=directory_listing()["skill_description"], review=_PLUGIN_REVIEW,
+                          connection=_PLUGIN_CONNECTION)
 
 
 def domain_skill_markdown(skill):

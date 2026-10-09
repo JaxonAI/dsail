@@ -208,15 +208,21 @@ class CodexPluginTests(unittest.TestCase):
         self.assertEqual(mcp, {"mcpServers": {"dsail": {"command": "dsail", "args": ["mcp"]}}})
         self.assertFalse(os.path.exists(os.path.join(self.root, "plugins", "dsail", ".app.json")))
 
-        # The plugin's main skill is the `dsail init` skill with two changes:
-        # the directory listing's description, and review guidance for a
-        # client connected to the hosted server.
+        # The plugin's main skill is the `dsail init` skill with three changes:
+        # the directory listing's description, review guidance for a client
+        # connected to the hosted server, and what to tell a person in a chat
+        # app who added the plugin but never connected its connector.
         listing = contract.phrasing()["directory_listing"]
         plugin_skill = self._text(os.path.join("plugins", "dsail", "skills", "dsail", "SKILL.md"))
         self.assertEqual(plugin_skill, scaffold.plugin_skill_markdown())
         self.assertEqual(_frontmatter(plugin_skill), {"name": "dsail", "description": listing["skill_description"]})
         self.assertIn("`dsail_review` once", plugin_skill)
+        self.assertIn("choose Connect next to DSAIL and sign in", plugin_skill)
+        connect_at = plugin_skill.index("- In a chat app, where there is no terminal")
+        self.assertLess(connect_at, plugin_skill.index("- No `dsail_*` tools in this session"),
+                        "the chat app's path comes before the CLI fallback, which is for coding environments")
         init_skill = scaffold.skill_markdown()
+        self.assertNotIn("In a chat app", init_skill, "`dsail init` writes into a repository, not a chat app")
         tail = init_skill.split("- Integration code fetches the prompt pack", 1)[1]
         self.assertTrue(plugin_skill.endswith(tail), "only the description and the review bullet differ")
         for skill in listing["domain_skills"]:
