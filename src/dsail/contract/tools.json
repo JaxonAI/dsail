@@ -89,7 +89,7 @@
                 "type": "array"
               },
               "label": {
-                "description": "The ruleset's stored application-domain label (TJP-642), as ids under `vocabulary_version`. Null when the ruleset carries none, or when this account has labeling disabled. A label never alters a result; the level-two proposal text a caller sent is matched and dropped, never stored or returned.",
+                "description": "The ruleset's stored application-domain label, as ids under `vocabulary_version`. Null when the ruleset carries none, or when this account has labeling disabled. A label never alters a result; the level-two proposal text a caller sent is matched and dropped, never stored or returned.",
                 "properties": {
                   "confidence": {
                     "enum": [
@@ -1748,7 +1748,7 @@
                 "type": "array"
               },
               "label": {
-                "description": "The ruleset's stored application-domain label (TJP-642), as ids under `vocabulary_version`. Null when the ruleset carries none, or when this account has labeling disabled. A label never alters a result; the level-two proposal text a caller sent is matched and dropped, never stored or returned.",
+                "description": "The ruleset's stored application-domain label, as ids under `vocabulary_version`. Null when the ruleset carries none, or when this account has labeling disabled. A label never alters a result; the level-two proposal text a caller sent is matched and dropped, never stored or returned.",
                 "properties": {
                   "confidence": {
                     "enum": [
@@ -2686,7 +2686,7 @@
                 "type": "array"
               },
               "label": {
-                "description": "The ruleset's stored application-domain label (TJP-642), as ids under `vocabulary_version`. Null when the ruleset carries none, or when this account has labeling disabled. A label never alters a result; the level-two proposal text a caller sent is matched and dropped, never stored or returned.",
+                "description": "The ruleset's stored application-domain label, as ids under `vocabulary_version`. Null when the ruleset carries none, or when this account has labeling disabled. A label never alters a result; the level-two proposal text a caller sent is matched and dropped, never stored or returned.",
                 "properties": {
                   "confidence": {
                     "enum": [
@@ -3270,7 +3270,7 @@
         "description": "The new credential, shown once. On failure `ok` is false and `error` carries `code`, `message` and `docs`, the URL of the page that resolves it.",
         "oneOf": [
           {
-            "description": "An evaluation credential, minted on request with no human gate (TJP-621). The token is shown here and nowhere else — the service stores only its hash. Send it as the x-jaxon-credential header. It is scoped to compile, check and the prompt pack, capped per day and over its lifetime, and expires; every response it produces carries x-jaxon-credential-grade: evaluation.",
+            "description": "An evaluation credential, minted on request with no human gate. The token is shown here and nowhere else — the service stores only its hash. Send it as the x-jaxon-credential header. It is scoped to compile, check and the prompt pack, capped per day and over its lifetime, and expires; every response it produces carries x-jaxon-credential-grade: evaluation.",
             "properties": {
               "credential": {
                 "description": "The bearer token. Store it; it is not retrievable again.",
