@@ -102,11 +102,10 @@ compile.
     assert cap { amount <= 25000 "USD" };      -- compiles
     assert cap { amount <= 25000 };            -- REFUSED
 
-Units live on literals, not on `declare`, and a bare literal adopts the unit of
-whatever it meets. So the second form is not "25000 dollars": bind an answer of
-24000 "EUR" and the threshold becomes 25000 EUR, the policy quietly
-redenominates itself to the evidence, and 24000 <= 25000 comes back compliant
-where the real question — is 25920 USD over 25000 USD — is not. Writing the
+Units live on literals, not on `declare`, and a bare literal is a count: 25000
+of nothing in particular. So the second form is not "25000 dollars". A count
+is not an amount of money, and against any answer that states a currency the
+comparison is UNKNOWN: the policy never said what its 25000 is. Writing the
 unit costs four characters and moves every conversion inside the solver, where
 it is done in exact rationals.
 
